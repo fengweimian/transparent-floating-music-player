@@ -12,6 +12,7 @@
   const $ = (id) => document.getElementById(id);
   const cover = $("cover");
   const coverImg = $("cover-img");
+  const vinylLabel = $("vinyl-label");
   const mainTitle = $("main-title");
   const subTitle = $("sub-title");
   const folderInput = $("folder-input");
@@ -317,6 +318,9 @@
   function updatePlayIcon() {
     iconPlay.style.display = playing ? "none" : "";
     iconPause.style.display = playing ? "" : "none";
+    // 唱片旋转：有歌曲才转；播放中转、暂停停转（保持当前角度）
+    cover.classList.toggle("spinning", !!curSong());
+    cover.classList.toggle("paused", !playing);
   }
 
   btnPlay.addEventListener("click", () => {
@@ -433,6 +437,8 @@
     if (!song) return;
     setMarquee(mainTitle, song.name);
     setMarquee(subTitle, song.artist || "未知歌手");
+    // 唱片中心标签：歌名首字
+    if (vinylLabel) vinylLabel.textContent = (song.name || "♫").trim().charAt(0);
     if (song.cover) {
       coverImg.src = song.cover;
       coverImg.classList.add("show");
@@ -1283,6 +1289,8 @@
     coverImg.src = "";
     coverImg.classList.remove("show");
     cover.classList.remove("has-cover");
+    cover.classList.remove("spinning", "paused");
+    if (vinylLabel) vinylLabel.textContent = "♫";
     bg.classList.remove("has-cover");
     mainTitle.textContent = "小风音乐";
     subTitle.textContent = "此刻聆听";
@@ -1640,52 +1648,150 @@
     }
   }
 
-  // ============ 幻灯片背景 ============
-  let slideImages = [];
-  let slideIdx = 0;
+  // ============ 幻灯片背景（图片 + 视频混合，双视频交叉淡入淡出）============
+  let slides = [];
+  let slideIdx = -1;
   let slideTimer = null;
-  let slideImgEl = null;  // 当前显示的 img
+  let slideLoading = false;
+  let slideUsingImgFront = false;   // 当前显示的图片层
+  let slideActiveVideo = null;      // 当前播放的视频
+  let slideVideoEndBound = null;
+  let slideVideoFallback = null;
+  const slideImgBack = $("slide-img-back");
+  const slideImgFront = $("slide-img-front");
+  const slideVideoBack = $("slide-video-back");
+  const slideVideoFront = $("slide-video-front");
+  const slideSearchBar = document.querySelector(".online-search");
 
-  function createSlideImg() {
-    const img = document.createElement("img");
-    img.className = "slide-img";
-    bg.appendChild(img);
-    return img;
+  // 导入背景后进入 B 状态布局（body.bg-imported），并启用搜索框空闲自动隐藏
+  let searchHideTimer = null, searchAutoHideBound = false;
+  function slideSetBgMode(on) {
+    document.body.classList.toggle("bg-imported", on);
+    if (on) {
+      if (!searchAutoHideBound && slideSearchBar) {
+        searchAutoHideBound = true;
+        slideSearchBar.classList.add("auto-hide");
+        const schedule = () => {
+          clearTimeout(searchHideTimer);
+          searchHideTimer = setTimeout(() => slideSearchBar.classList.add("search-hidden"), 2000);
+        };
+        document.addEventListener("mousemove", () => {
+          slideSearchBar.classList.remove("search-hidden");
+          schedule();
+        }, { passive: true });
+        schedule();
+      }
+    } else {
+      if (slideSearchBar) slideSearchBar.classList.remove("auto-hide", "search-hidden");
+      clearTimeout(searchHideTimer);
+      searchAutoHideBound = false;
+    }
+  }
+
+  function slideHideLayer(el) { if (el) el.classList.remove("on"); }
+
+  function slidePauseVideos() {
+    slideVideoFront.pause();
+    slideVideoBack.pause();
+  }
+  function slideClearVideoWatch() {
+    if (slideVideoEndBound && slideActiveVideo) {
+      slideActiveVideo.removeEventListener("ended", slideVideoEndBound);
+    }
+    slideVideoEndBound = null;
+    if (slideVideoFallback) { clearTimeout(slideVideoFallback); slideVideoFallback = null; }
+  }
+
+  // 播放视频：ended 驱动切下一张（30s 兜底防卡死）
+  function slidePlayVideo(el) {
+    slideActiveVideo = el;
+    el.classList.add("on");
+    el.currentTime = 0;
+    el.play().catch(() => {});
+    slideVideoEndBound = () => { slideVideoEndBound = null; slideNext(); };
+    el.addEventListener("ended", slideVideoEndBound, { once: true });
+    slideVideoFallback = setTimeout(() => {
+      if (slideVideoEndBound) {
+        el.removeEventListener("ended", slideVideoEndBound);
+        slideVideoEndBound = null;
+      }
+      slideNext();
+    }, 30000);
+  }
+
+  function slideNext() {
+    if (!slides.length || slideLoading) return;
+    slideIdx = (slideIdx + 1) % slides.length;
+    slideShow(slideIdx);
+  }
+
+  function slideShow(i) {
+    const s = slides[i];
+    if (!s) return;
+    slideClearVideoWatch();
+    if (s.type === "video") {
+      // 视频：双缓冲交叉淡入淡出（视频由 ended 驱动，图片定时器暂停）
+      if (slideTimer) { clearInterval(slideTimer); slideTimer = null; }
+      const newV = slideActiveVideo === slideVideoFront ? slideVideoBack : slideVideoFront;
+      if (slideActiveVideo) slideHideLayer(slideActiveVideo);
+      slideHideLayer(slideImgFront);
+      slideHideLayer(slideImgBack);
+      newV.src = s.url;
+      slideLoading = true;
+      const onReady = () => {
+        newV.removeEventListener("loadeddata", onReady);
+        slideLoading = false;
+        slidePlayVideo(newV);
+      };
+      newV.addEventListener("loadeddata", onReady, { once: true });
+      newV.load();
+    } else {
+      // 图片：切回图片双缓冲 + 定时轮换
+      if (slideActiveVideo) { slideHideLayer(slideActiveVideo); slideActiveVideo.pause(); }
+      slideActiveVideo = null;
+      const target = slideUsingImgFront ? slideImgBack : slideImgFront;
+      slideHideLayer(slideUsingImgFront ? slideImgFront : slideImgBack);
+      target.src = s.url;
+      target.classList.add("on");
+      slideUsingImgFront = !slideUsingImgFront;
+      if (!slideTimer) {
+        slideTimer = setInterval(() => slideNext(), (settings.slideInterval || 8) * 1000);
+      }
+    }
   }
 
   function startSlideshow() {
     stopSlideshow();
-    if (!settings.slideEnabled || !slideImages.length) return;
+    if (!settings.slideEnabled || !slides.length) return;
     slideIdx = 0;
-    if (!slideImgEl) slideImgEl = createSlideImg();
-    showSlide(slideIdx);
-    slideTimer = setInterval(() => {
-      slideIdx = (slideIdx + 1) % slideImages.length;
-      showSlide(slideIdx);
-    }, settings.slideInterval * 1000);
-  }
-
-  function showSlide(i) {
-    if (!slideImgEl) slideImgEl = createSlideImg();
-    // 先淡出再换图
-    slideImgEl.classList.remove("on");
-    setTimeout(() => {
-      slideImgEl.src = slideImages[i].url;
-      slideImgEl.classList.add("on");
-    }, 300);
+    slideShow(0);
+    slideSetBgMode(true);   // 进入 B 状态布局（唱片左/歌词右/控件缩左上 + 搜索框自动隐藏）
   }
 
   function stopSlideshow() {
     if (slideTimer) { clearInterval(slideTimer); slideTimer = null; }
-    if (slideImgEl) { slideImgEl.classList.remove("on"); }
+    slideClearVideoWatch();
+    slidePauseVideos();
+    slideHideLayer(slideImgFront);
+    slideHideLayer(slideImgBack);
+    slideHideLayer(slideVideoFront);
+    slideHideLayer(slideVideoBack);
+    slideActiveVideo = null;
+    slideSetBgMode(false);  // 回到 A 状态布局
   }
 
   $("btn-pick-slide").addEventListener("click", () => $("slide-folder").click());
   $("slide-folder").addEventListener("change", async (e) => {
-    const files = Array.from(e.target.files || []).filter((f) => /\.(jpg|jpeg|png|webp|bmp)$/i.test(f.name));
-    slideImages = files.map((f) => ({ url: URL.createObjectURL(f) }));
-    $("slide-count").textContent = slideImages.length + " 张图片";
-    showFeedback("已加载 " + slideImages.length + " 张幻灯片图片");
+    const files = Array.from(e.target.files || []).filter((f) =>
+      /\.(jpg|jpeg|png|webp|bmp|mp4|webm|mov|avi|mkv)$/i.test(f.name));
+    slides = files.map((f) => ({
+      type: /\.(mp4|webm|mov|avi|mkv)$/i.test(f.name) ? "video" : "image",
+      url: URL.createObjectURL(f),
+    }));
+    const imgN = slides.filter((s) => s.type === "image").length;
+    const vidN = slides.length - imgN;
+    $("slide-count").textContent = slides.length + " 个（图片 " + imgN + " / 视频 " + vidN + "）";
+    showFeedback("已加载 " + slides.length + " 个幻灯片背景");
     startSlideshow();
   });
 

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小风音乐 · 唱片布局 Demo v3</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ===== 背景层 ===== */
+  .bg {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(40,40,80,0.9), rgba(10,10,24,1) 65%);
+    opacity: 1;
+    transition: opacity 0.8s;
+  }
+  .bg.dimmed { opacity: 0.25; }
+
+  /* ================== 状态 A：与当前新模板布局一致 ================== */
+
+  /* 顶部在线搜索（顶部居中，位置固定不动） */
+  .search {
+    position: fixed; top: 7vh; left: 50%; transform: translateX(-50%);
+    z-index: 30;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.28);
+    border-radius: 999px;
+    backdrop-filter: blur(10px);
+    font-size: 14px; color: rgba(255,255,255,0.9);
+    width: 440px;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s;
+  }
+  /* 空闲自动隐藏：整体彻底向上滑出屏幕 + 完全透明（仅状态 B 启用） */
+  .search.auto-hide.search-hidden {
+    transform: translate(-50%, -500%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .search .s-ico { font-size: 14px; opacity: 0.7; }
+  .search input {
+    flex: 1; background: none; border: none; outline: none;
+    color: #fff; font-size: 14px; font-family: inherit;
+  }
+  .search input::placeholder { color: rgba(255,255,255,0.45); }
+  .search .s-tag { font-size: 11px; color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 999px; }
+
+  /* 左上标题区（与现状一致） */
+  .header {
+    position: fixed; top: 9vh; left: 6.5vw; z-index: 20;
+    max-width: 34vw;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .main-title {
+    font-size: 76px; font-weight: 700; letter-spacing: 4px; line-height: 1.1;
+    text-align: left; text-shadow: 0 2px 24px rgba(0,0,0,0.45);
+    white-space: nowrap; overflow: hidden;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sub-title {
+    margin-top: 14px; font-size: 38px; font-weight: 300; letter-spacing: 8px;
+    text-align: center; color: rgba(255,255,255,0.92);
+    text-shadow: 0 1px 16px rgba(0,0,0,0.4);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 左侧播放区（贴左 6.5vw） */
+  .player {
+    position: fixed; left: 6.5vw; top: 50%; transform: translateY(-50%);
+    z-index: 15;
+    display: flex; flex-direction: column; align-items: center; gap: 24px;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ===== 黑胶唱片（封面改造，逆时针旋转）===== */
+  .vinyl {
+    position: relative;
+    width: 268px; height: 268px;
+    border-radius: 50%;
+    background:
+      repeating-radial-gradient(circle at 50% 50%,
+        #1b1b1f 0px, #1b1b1f 1.5px, #2a2a30 1.5px, #2a2a30 3px, #151519 3px, #151519 4.5px),
+      radial-gradient(circle at 50% 50%, #000 55%, #232329 78%, #0a0a0d 100%);
+    box-shadow:
+      0 24px 60px rgba(0,0,0,0.6),
+      inset 0 0 40px rgba(0,0,0,0.85),
+      inset 0 0 4px rgba(255,255,255,0.06);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .vinyl .art {
+    position: absolute; inset: 26px; border-radius: 50%;
+    overflow: hidden;
+    background: radial-gradient(circle at 38% 32%, #7ec8ff, #3a5bbf 60%, #1c2a66 100%);
+  }
+  .vinyl .art img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; border-radius: 50%;
+  }
+  .vinyl .art::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    box-shadow: inset 0 0 26px rgba(0,0,0,0.55);
+  }
+  .vinyl .label {
+    position: absolute; left: 50%; top: 50%;
+    width: 74px; height: 74px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #ffd76a, #e8932a 70%, #b86a12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; color: rgba(0,0,0,0.75);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(255,255,255,0.35);
+  }
+  .vinyl .label::after {
+    content: ""; position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(0,0,0,0.85); top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+  .vinyl .shine {
+    position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 32%);
+  }
+  .vinyl.spinning { animation: spin-ccw 8s linear infinite; }
+  @keyframes spin-ccw {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+  }
+
+  /* 控制栏（与现状一致） */
+  .controls {
+    display: flex; flex-direction: column; gap: 14px;
+    width: 268px;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .progress { width: 100%; height: 14px; display: flex; align-items: center; cursor: pointer; }
+  .progress-track { position: relative; width: 100%; height: 2px; border-radius: 1px; background: rgba(255,255,255,0.22); }
+  .progress-fill {
+    position: absolute; left: 0; top: 0; height: 100%; width: 42%;
+    border-radius: 1px; background: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.6);
+  }
+  .progress-dot {
+    position: absolute; left: 42%; top: 50%; transform: translate(-50%, -50%);
+    width: 9px; height: 9px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 10px rgba(255,255,255,0.8);
+  }
+  .btn-row { display: flex; align-items: center; justify-content: space-between; transition: all 0.8s; }
+  .icon-btn {
+    background: none; border: none; color: rgba(255,255,255,0.92);
+    cursor: pointer; padding: 6px; display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, color 0.15s;
+  }
+  .icon-btn:hover { color: #fff; transform: scale(1.12); }
+  .icon-btn svg { display: block; }
+  .icon-btn.play { transform: scale(1.18); }
+
+  /* 右侧歌词（与现状一致） */
+  .lyrics {
+    position: fixed; right: 7vw; top: 50%; transform: translateY(-50%);
+    z-index: 18;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    width: 44vw; text-align: center;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .lyric-line { font-size: 26px; font-weight: 500; color: rgba(255,255,255,0.35); letter-spacing: 2px; text-shadow: 0 1px 12px rgba(0,0,0,0.4); transition: all 0.8s; }
+  .lyric-line.prev, .lyric-line.next { opacity: 0.7; }
+  .lyric-line.current { font-size: 36px; font-weight: 700; color: #fff; text-shadow: 0 2px 20px rgba(0,0,0,0.55); }
+  .lyric-line.current .hl { color: #ffd76a; }
+
+  /* 底部频谱（与现有新模板一致：canvas 110px 高、160 柱、拱形 + 柱顶高光） */
+  .eq { position: fixed; left: 0; right: 0; bottom: 0; height: 110px; z-index: 5; pointer-events: none; }
+  .eq canvas { width: 100%; height: 100%; display: block; }
+  .motto {
+    position: fixed; left: 50%; bottom: 16vh; transform: translateX(-50%);
+    z-index: 12; font-size: 21px; font-weight: 300; letter-spacing: 4px;
+    color: rgba(255,255,255,0.75); text-shadow: 0 2px 14px rgba(0,0,0,0.5);
+  }
+
+  /* ================== 状态 B：导入背景后 ================== */
+  /* 唱片 → 滑到最左（缩到 210px，保持较大观感） */
+  body.bg-imported .player { left: 3.5vw; gap: 16px; }
+  body.bg-imported .vinyl { width: 210px; height: 210px; }
+  body.bg-imported .vinyl .art { inset: 20px; }
+  body.bg-imported .vinyl .label { width: 58px; height: 58px; font-size: 10px; }
+  body.bg-imported .vinyl .label::after { width: 6px; height: 6px; }
+  /* 控制栏 → 缩到 210px（不用太小） */
+  body.bg-imported .controls { width: 210px; }
+  body.bg-imported .btn-row .icon-btn svg { width: 17px; height: 17px; }
+
+  /* 歌词 → 最右侧 */
+  body.bg-imported .lyrics {
+    left: 100%; right: auto;
+    transform: translate(-100%, -50%);
+    margin-right: 4vw; width: 36vw;
+  }
+  body.bg-imported .lyric-line { font-size: 22px; }
+  body.bg-imported .lyric-line.current { font-size: 30px; }
+
+  /* 歌名/歌手 → 左上角搜索框下方 + 缩小 */
+  body.bg-imported .header { top: 14vh; left: 6.5vw; max-width: 24vw; }
+  body.bg-imported .main-title { font-size: 24px; letter-spacing: 2px; }
+  body.bg-imported .sub-title { font-size: 12px; margin-top: 5px; letter-spacing: 4px; text-align: left; }
+
+  /* ===== 演示控制条 ===== */
+  .demo-bar {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+    z-index: 99; display: flex; align-items: center; gap: 14px;
+    padding: 10px 22px; border-radius: 999px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.25);
+    backdrop-filter: blur(12px);
+    font-size: 13px; color: rgba(255,255,255,0.85);
+  }
+  .demo-bar button {
+    padding: 8px 20px; border-radius: 999px; border: none;
+    background: #fff; color: #111; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit; letter-spacing: 1px;
+    transition: transform 0.15s;
+  }
+  .demo-bar button:hover { transform: scale(1.05); }
+  .demo-bar .state-tag { color: rgba(255,255,255,0.6); font-size: 12px; max-width: 520px; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+  <!-- 背景层 -->
+  <div class="bg" id="bg"></div>
+
+  <!-- 顶部在线搜索（位置不动；导入背景后空闲自动上滑隐藏） -->
+  <div class="search" id="search">
+    <span class="s-ico">🔍</span>
+    <input placeholder="搜索歌曲，在线播放..." value="把回忆拼好给你">
+    <span class="s-tag">在线播放</span>
+  </div>
+
+  <!-- 左上歌名/歌手 -->
+  <div class="header">
+    <div class="main-title" id="main-title">把回忆拼好给你</div>
+    <div class="sub-title">— cici_ —</div>
+  </div>
+
+  <!-- 左侧播放区：黑胶唱片 + 控制栏 -->
+  <div class="player" id="player">
+    <div class="vinyl spinning" id="vinyl">
+      <div class="art">
+        <!-- 歌曲封面图（demo 用内嵌 SVG 示例封面；正式版放歌曲真实封面） -->
+        <img id="art-img" alt="" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='300'%20height='300'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%237ec8ff'/%3E%3Cstop%20offset='.55'%20stop-color='%234a6fe0'/%3E%3Cstop%20offset='1'%20stop-color='%231b2c66'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='300'%20height='300'%20fill='url(%23g)'/%3E%3Ctext%20x='150'%20y='150'%20font-size='150'%20fill='rgba(255,255,255,0.9)'%20text-anchor='middle'%20dominant-baseline='central'%3E%E2%99%AB%3C/text%3E%3C/svg%3E">
+      </div>
+      <div class="label">忆</div>
+      <div class="shine"></div>
+    </div>
+    <div class="controls">
+      <div class="progress">
+        <div class="progress-track"><div class="progress-fill"></div><div class="progress-dot"></div></div>
+      </div>
+      <div class="btn-row">
+        <button class="icon-btn" title="播放模式">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+            <polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+          </svg>
+        </button>
+        <button class="icon-btn" title="上一曲">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="19 20 9 12 19 4 19 20" fill="currentColor" stroke="none"></polygon><line x1="5" y1="4" x2="5" y2="20"></line>
+          </svg>
+        </button>
+        <button class="icon-btn play" title="播放/暂停">
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"></path></svg>
+        </button>
+        <button class="icon-btn" title="下一曲">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"></polygon><line x1="19" y1="4" x2="19" y2="20"></line>
+          </svg>
+        </button>
+        <button class="icon-btn" title="更多选项">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"></circle>
+            <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"></circle>
+            <circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧歌词 -->
+  <div class="lyrics">
+    <div class="lyric-line prev">把我们的故事写成诗</div>
+    <div class="lyric-line current">把回忆拼好 <span class="hl">给</span> 你</div>
+    <div class="lyric-line next">就像那年夏天初次见你</div>
+  </div>
+
+  <!-- 底部频谱 + 励志句 -->
+  <div class="eq"><canvas id="eq-canvas"></canvas></div>
+  <div class="motto">把平凡的日子，过成滚烫的诗</div>
+
+  <!-- 演示控制条 -->
+  <div class="demo-bar">
+    <button id="btn-toggle">▶ 模拟导入背景</button>
+    <span class="state-tag" id="state-tag">状态 A：无背景（与当前新模板布局一致，封面已是唱片）</span>
+  </div>
+
+<script>
+  // ===== 底部频谱（与现有新模板同款算法：canvas 160 柱 / 拱形权重 / 对数采样 / 柱顶高光）=====
+  // demo 无真实音频，用"伪频率数据"驱动；正式版接 AnalyserNode 的 getByteFrequencyData
+  const eqCanvas = document.getElementById("eq-canvas");
+  const eqCtx = eqCanvas.getContext("2d");
+  function sizeEq() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    eqCanvas.width = Math.floor(window.innerWidth * dpr);
+    eqCanvas.height = Math.floor(110 * dpr);
+  }
+  sizeEq();
+  window.addEventListener("resize", sizeEq);
+
+  const mockData = new Uint8Array(256);
+  let phase = 0;
+  function drawEq() {
+    requestAnimationFrame(drawEq);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = eqCanvas.width, H = eqCanvas.height;
+    eqCtx.clearRect(0, 0, W, H);
+    // 伪频率数据：低频多能量 + 波动（模拟人声/鼓点起伏）
+    phase += 0.05;
+    for (let i = 0; i < mockData.length; i++) {
+      const t = i / mockData.length;
+      const base = (1 - t) * 110 * Math.pow(Math.sin(phase * 2 + t * 9), 2) + Math.random() * 36 * (1 - t);
+      mockData[i] = Math.max(0, Math.min(255, base + (Math.random() - 0.5) * 26));
+    }
+    // 与现有 drawEq 相同的绘制逻辑
+    const data = mockData;
+    const N = 160;
+    const barW = W / N;
+    const gap = barW * 0.25;
+    const barX = Math.max(1, barW - gap);
+    for (let i = 0; i < N; i++) {
+      const arch = 0.25 + 0.75 * Math.pow(Math.sin((i / (N - 1)) * Math.PI), 1.1);
+      const t = i / N;
+      const binIdx = Math.min(data.length - 1, Math.floor(Math.pow(t, 1.5) * (data.length - 1)));
+      const v = data[binIdx] / 255;
+      const h = Math.max(2, v * arch * H * 0.92);
+      const x = i * barW + gap / 2;
+      eqCtx.fillStyle = "rgba(255,255,255,0.38)";
+      eqCtx.fillRect(x, H - h * dpr, barX * dpr, h * dpr);
+      eqCtx.fillStyle = "rgba(255,255,255,0.55)";
+      eqCtx.fillRect(x, H - h * dpr, barX * dpr, Math.max(1, 3 * dpr));
+    }
+  }
+  drawEq();
+
+  // ===== 搜索框空闲自动隐藏 =====
+  const search = document.getElementById("search");
+  let hideTimer = null;
+
+  // 空闲自动隐藏（仅状态 B）：鼠标 2 秒不动 → 搜索框上滑隐藏；动一下 → 滑回
+  function armAutoHide() {
+    search.classList.add("auto-hide");
+    const schedule = () => {
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => search.classList.add("search-hidden"), 2000);
+    };
+    document.addEventListener("mousemove", () => {
+      search.classList.remove("search-hidden");
+      schedule();
+    }, { passive: true });
+    schedule();
+  }
+  function disarmAutoHide() {
+    search.classList.remove("auto-hide", "search-hidden");
+    clearTimeout(hideTimer);
+  }
+
+  let imported = false;
+  const btn = document.getElementById("btn-toggle");
+  const tag = document.getElementById("state-tag");
+  const bg = document.getElementById("bg");
+  btn.addEventListener("click", () => {
+    imported = !imported;
+    document.body.classList.toggle("bg-imported", imported);
+    bg.classList.toggle("dimmed", imported);
+    if (imported) armAutoHide();
+    else disarmAutoHide();
+    btn.textContent = imported ? "⏪ 移除背景" : "▶ 模拟导入背景";
+    tag.textContent = imported
+      ? "状态 B：已导入背景 —— 唱片缩到 210px 滑到最左 / 歌词到最右 / 歌名·歌手缩左上；搜索框位置不动，鼠标 2 秒不动自动上滑隐藏（动一下回来）"
+      : "状态 A：无背景（与当前新模板布局一致，封面已是唱片）";
+  });
+</script>
+</body>
+</html>

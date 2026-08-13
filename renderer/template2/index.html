@@ -44,6 +44,14 @@
     pointer-events: none;
   }
   .bg .slide-img.on { opacity: 0.28; }
+  /* 幻灯片视频层（双缓冲交叉淡入淡出） */
+  .bg .slide-video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0;
+    transition: opacity 1.2s ease;
+    pointer-events: none;
+  }
+  .bg .slide-video.on { opacity: 0.28; }
   /* 幻灯片遮罩（保证白字可读） */
   .bg::before {
     content: ""; position: absolute; inset: 0; z-index: 1;
@@ -122,17 +130,64 @@
     position: fixed; left: 6.5vw; top: 50%; transform: translateY(-50%);
     z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 24px;
   }
+  /* ===== 黑胶唱片封面（原封面改造：圆角方形 → 唱片，播放中逆时针旋转）===== */
   .cover {
-    width: 268px; height: 268px; border-radius: 30px;
-    background: linear-gradient(150deg, #3d3a5c 0%, #23233a 55%, #151527 100%);
-    box-shadow: 0 24px 60px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08);
+    width: 268px; height: 268px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    overflow: hidden; position: relative;
+    position: relative;
+    /* 黑胶盘体：同心圆纹路 */
+    background:
+      repeating-radial-gradient(circle at 50% 50%,
+        #1b1b1f 0px, #1b1b1f 1.5px, #2a2a30 1.5px, #2a2a30 3px, #151519 3px, #151519 4.5px),
+      radial-gradient(circle at 50% 50%, #000 55%, #232329 78%, #0a0a0d 100%);
+    box-shadow:
+      0 24px 60px rgba(0,0,0,0.6),
+      inset 0 0 40px rgba(0,0,0,0.85),
+      inset 0 0 4px rgba(255,255,255,0.06);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  #cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s; }
+  /* 封面图（唱片中央圆形，随唱片旋转） */
+  .cover .vinyl-art {
+    position: absolute; inset: 26px; border-radius: 50%; overflow: hidden;
+    background: radial-gradient(circle at 38% 32%, #7ec8ff, #3a5bbf 60%, #1c2a66 100%);
+  }
+  .cover .vinyl-art::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    box-shadow: inset 0 0 26px rgba(0,0,0,0.55);
+  }
+  #cover-img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; border-radius: 50%; opacity: 0; transition: opacity 0.5s;
+  }
   #cover-img.show { opacity: 1; }
-  .cover-note { position: relative; z-index: 2; width: 74px; height: 74px; opacity: 0.85; transition: opacity 0.4s; }
-  .cover.has-cover .cover-note { opacity: 0; }
+  /* 中心标签（歌名首字） */
+  .cover .vinyl-label {
+    position: absolute; left: 50%; top: 50%;
+    width: 74px; height: 74px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #ffd76a, #e8932a 70%, #b86a12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; letter-spacing: 2px; color: rgba(0,0,0,0.75);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(255,255,255,0.35);
+  }
+  .cover .vinyl-label::after {
+    content: ""; position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(0,0,0,0.85); top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+  .cover.has-cover .vinyl-label { opacity: 0.85; }
+  /* 高光 */
+  .cover .vinyl-shine {
+    position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 32%);
+  }
+  /* 播放中：逆时针旋转；暂停停转（保持当前角度不归位） */
+  .cover.spinning { animation: spin-ccw 8s linear infinite; }
+  .cover.spinning.paused { animation-play-state: paused; }
+  @keyframes spin-ccw {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+  }
 
   .controls { width: 268px; display: flex; flex-direction: column; gap: 14px; }
 
@@ -486,11 +541,58 @@
     min-width: 36px; text-align: right; font-variant-numeric: tabular-nums;
   }
 
+  /* ================== 导入背景后的布局变换（B 状态：body.bg-imported）================== */
+  /* 平滑过渡（定位/尺寸/字号类） */
+  .player, .cover, .controls, .lyrics, .lyric-line, .header, .main-title, .sub-title,
+  .online-search, .btn-row, .btn-row .icon-btn svg {
+    transition:
+      left 0.8s cubic-bezier(0.4,0,0.2,1), top 0.8s cubic-bezier(0.4,0,0.2,1),
+      width 0.8s cubic-bezier(0.4,0,0.2,1), height 0.8s cubic-bezier(0.4,0,0.2,1),
+      margin 0.8s cubic-bezier(0.4,0,0.2,1), gap 0.8s cubic-bezier(0.4,0,0.2,1),
+      font-size 0.8s cubic-bezier(0.4,0,0.2,1), transform 0.8s cubic-bezier(0.4,0,0.2,1),
+      opacity 0.8s cubic-bezier(0.4,0,0.2,1), letter-spacing 0.8s;
+  }
+  /* 唱片 → 滑到最左，缩到 210px（保持较大观感） */
+  body.bg-imported .player { left: 3.5vw; gap: 16px; }
+  body.bg-imported .cover { width: 210px; height: 210px; }
+  body.bg-imported .cover .vinyl-art { inset: 20px; }
+  body.bg-imported .cover .vinyl-label { width: 58px; height: 58px; font-size: 10px; }
+  body.bg-imported .cover .vinyl-label::after { width: 6px; height: 6px; }
+  /* 控制栏 → 缩到 210px */
+  body.bg-imported .controls { width: 210px; }
+  body.bg-imported .btn-row .icon-btn svg { width: 17px; height: 17px; }
+  /* 歌词 → 最右侧 */
+  body.bg-imported .lyrics {
+    left: 100%; right: auto;
+    transform: translate(-100%, -50%);
+    margin-right: 4vw; width: 36vw;
+  }
+  body.bg-imported .lyric-line { font-size: 22px; }
+  body.bg-imported .lyric-line.current { font-size: 30px; }
+  /* 歌名/歌手 → 左上角搜索框下方 + 缩小 */
+  body.bg-imported .header { top: 14vh; max-width: 24vw; }
+  body.bg-imported .main-title { font-size: 24px; letter-spacing: 2px; }
+  body.bg-imported .sub-title { font-size: 12px; margin-top: 5px; letter-spacing: 4px; text-align: left; }
+
+  /* ===== 搜索框空闲自动隐藏（仅导入背景后启用）：位置不动，彻底上滑 + 透明 ===== */
+  .online-search.auto-hide { transition: transform 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.5s, border-color 0.2s, background 0.2s; }
+  .online-search.auto-hide.search-hidden {
+    transform: translate(-50%, -500%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
 </style>
 </head>
 <body>
 
-<div class="bg" id="bg"></div>
+<div class="bg" id="bg">
+  <!-- 幻灯片背景：图片双缓冲 + 视频双缓冲（交叉淡入淡出，视频播完自动切下一张） -->
+  <img class="slide-img" id="slide-img-back" alt="">
+  <img class="slide-img" id="slide-img-front" alt="">
+  <video class="slide-video" id="slide-video-back" muted playsinline preload="auto"></video>
+  <video class="slide-video" id="slide-video-front" muted playsinline preload="auto"></video>
+</div>
 
 <!-- 窗口控制（桌面版：最小化/退出；浏览器预览自动隐藏） -->
 <div class="window-controls" id="window-controls">
@@ -525,13 +627,11 @@
 
 <!-- 左侧：播放控件 -->
 <div class="player">
-  <div class="cover" id="cover">
-    <img id="cover-img" alt="">
-    <svg class="cover-note" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9 18V5l12-2v13"></path>
-      <circle cx="6" cy="18" r="3"></circle>
-      <circle cx="18" cy="16" r="3"></circle>
-    </svg>
+  <!-- 黑胶唱片封面（播放中逆时针旋转；中央显示歌曲封面图） -->
+  <div class="cover vinyl" id="cover">
+    <div class="vinyl-art"><img id="cover-img" alt=""></div>
+    <div class="vinyl-label" id="vinyl-label">&#9835;</div>
+    <div class="vinyl-shine"></div>
   </div>
 
   <div class="controls">
