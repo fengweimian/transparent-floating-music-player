@@ -1,0 +1,26 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+*.blockmap
+
+# 用户本地数据
+music/
+images/
+.workbuddy/
+.claude/
+.remember/
+
+# 日志与系统文件
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# 临时测试脚本（开发期轮转测试用）
+_*.js
+
+# ⚠️ 代码保护：明文源码备份禁止入库（加密的唯一意义）
+scripts/main.original.js
+scripts/_protected/

@@ -1,0 +1,301 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* 主题变量（与 style.css 一致，settings 窗口独立加载需自带定义） */
+:root {
+  --accent-1: 100, 100, 255;        /* 主渐变起点 */
+  --accent-2: 150, 100, 255;        /* 主渐变终点 */
+  --accent-border: 150, 150, 255;   /* 按钮描边 */
+}
+html[data-theme="ocean"] {
+  --accent-1: 0, 180, 220;
+  --accent-2: 0, 120, 220;
+  --accent-border: 0, 170, 230;
+}
+html[data-theme="sunset"] {
+  --accent-1: 255, 140, 80;
+  --accent-2: 255, 90, 150;
+  --accent-border: 255, 150, 110;
+}
+html[data-theme="forest"] {
+  --accent-1: 60, 190, 140;
+  --accent-2: 40, 160, 200;
+  --accent-border: 60, 190, 150;
+}
+
+body {
+  font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+.settings-window {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 32px 28px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 28px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.section {
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group:last-child { margin-bottom: 0; }
+
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: rgba(var(--accent-1), 0.6);
+  cursor: pointer;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.folder-row {
+  display: flex;
+  gap: 8px;
+}
+
+.folder-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-input:focus { border-color: rgba(255, 255, 255, 0.2); }
+
+.font-select {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.font-select:focus { border-color: rgba(255, 255, 255, 0.2); }
+.font-select option {
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+.browse-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.browse-btn:hover { background: rgba(255, 255, 255, 0.18); }
+.browse-btn:active { transform: scale(0.97); }
+
+.info {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 6px;
+  min-height: 18px;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 逐字歌词颜色选择 */
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 44px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+.color-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+.slider-value {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  text-align: center;
+  margin-top: 8px;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, rgba(var(--accent-1), 0.3), rgba(var(--accent-2), 0.3));
+  color: #ffffff;
+  border: 1px solid rgba(var(--accent-border), 0.2);
+  padding: 12px 48px;
+  border-radius: 50px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 0.5px;
+}
+
+.save-btn:hover {
+  background: linear-gradient(135deg, rgba(var(--accent-1), 0.45), rgba(var(--accent-2), 0.45));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(var(--accent-1), 0.2);
+}
+
+.save-btn:active { transform: translateY(0); }
+
+/* ===== 已登录用户信息 ===== */
+.login-user-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.settings-login-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+.login-user-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.login-vip-info {
+  font-size: 12px;
+  color: rgba(240, 190, 90, 0.9);
+}
+
+/* 桌面歌词设置 */
+#desktop-lyrics-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.dl-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dl-setting-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+}
+.radio-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}

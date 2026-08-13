@@ -1,0 +1,90 @@
+{
+  "name": "transparent-music-player",
+  "version": "3.2.25",
+  "description": "全透明无边框音乐播放器，支持在线搜索/全屏图片幻灯片/歌词显示",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.musicplayer.transparent",
+    "productName": "小风音乐",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "main.jsc",
+      "preload.js",
+      "renderer/**/*",
+      "resources/**",
+      "lib/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/qrc-decoder",
+        "to": "node_modules/qrc-decoder"
+      },
+      {
+        "from": "node_modules/pako",
+        "to": "node_modules/pako"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "resources/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "小风音乐",
+      "installerIcon": null,
+      "uninstallerIcon": null,
+      "installerHeaderIcon": null,
+      "license": null
+    },
+    "portable": {
+      "artifactName": "小风音乐_${version}_便携版.exe"
+    },
+    "electronFuses": {
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false
+    }
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^8.0.1",
+    "@babel/plugin-transform-arrow-functions": "^8.0.1",
+    "electron": "^33.0.0",
+    "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "@meting/core": "^1.6.1",
+    "bytenode": "^1.6.0",
+    "font-list": "^2.1.0",
+    "qrc-decoder": "^1.0.2",
+    "qrcode": "^1.5.4"
+  }
+}

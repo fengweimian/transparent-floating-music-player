@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小风音乐</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 全局 Toast 提示（右上角，下载等操作反馈） -->
+<div id="global-toast"></div>
+
+<!-- 右上角：网易云登录入口 -->
+<div id="login-entry">
+  <button id="btn-login-entry" title="登录网易云（逐字歌词）">
+    <img src="netease-logo.ico" alt="" class="login-logo">
+    网易云登录
+  </button>
+  <div id="login-user-chip" style="display:none" title="已登录网易云">
+    <img id="login-avatar" alt="" onerror="this.style.display='none'">
+    <span id="login-nickname"></span>
+  </div>
+  <!-- 已登录下拉菜单 -->
+  <div id="login-menu" style="display:none">
+    <div class="login-menu-item" id="menu-login-playlists">我的网易云歌单</div>
+    <div class="login-menu-item" id="menu-login-daily">每日推荐</div>
+    <div class="login-menu-item" id="menu-login-record">最近听过</div>
+    <div class="login-menu-divider"></div>
+    <div class="login-menu-item" id="menu-login-open-settings">设置</div>
+    <div class="login-menu-item login-menu-danger" id="menu-login-logout">退出登录</div>
+  </div>
+</div>
+
+<!-- 右上角：QQ音乐登录入口 -->
+<div id="qqlogin-entry">
+  <button id="btn-qqlogin-entry" title="登录QQ音乐（逐字歌词 + 歌单/每日推荐/最近听过）">
+    <img src="qqmusic-logo.ico" alt="" class="login-logo">
+    QQ登录
+  </button>
+  <div id="qqlogin-user-chip" style="display:none" title="已登录QQ音乐">
+    <img id="qqlogin-avatar" alt="" onerror="this.style.display='none'">
+    <span id="qqlogin-nickname"></span>
+  </div>
+  <!-- QQ音乐已登录下拉菜单 -->
+  <div id="qqlogin-menu" style="display:none">
+    <div class="login-menu-item" id="menu-qqlogin-playlists">我的QQ音乐歌单</div>
+    <div class="login-menu-item" id="menu-qqlogin-daily">每日推荐</div>
+    <div class="login-menu-divider"></div>
+    <div class="login-menu-item" id="menu-qqlogin-open-settings">设置</div>
+    <div class="login-menu-item login-menu-danger" id="menu-qqlogin-logout">退出登录</div>
+  </div>
+</div>
+
+<!-- 幻灯片层 -->
+<div id="slideshow">
+  <img id="slide-back" class="slide-img" src="" alt="" onerror="this.style.opacity='0'">
+  <img id="slide-front" class="slide-img" src="" alt="" onerror="this.style.opacity='0'">
+  <video id="slide-video-back" class="slide-video" src="" muted loop playsinline></video>
+  <video id="slide-video-front" class="slide-video" src="" muted loop playsinline></video>
+  <div id="slide-overlay"></div>
+</div>
+
+<!-- 歌词 -->
+<div id="lyrics">
+  <div id="lyrics-content"></div>
+</div>
+
+<!-- 曲目信息 -->
+<div id="track-info">
+  <span id="track-name">未选择音乐文件夹</span>
+</div>
+
+<!-- 专辑封面 -->
+<div id="cover-art">
+  <img id="cover-img" src="" alt="">
+  <div id="cover-info">
+    <span id="cover-name"></span>
+    <span id="cover-artist"></span>
+  </div>
+</div>
+
+<!-- 播放列表面板 -->
+<div id="playlist-panel">
+  <div id="playlist-header">
+    <span id="playlist-title">播放列表</span>
+    <span id="playlist-count">0 首</span>
+    <button id="btn-playlist-clear" title="清空在线歌曲">清空在线</button>
+    <button id="btn-playlist-close" title="关闭">✕</button>
+  </div>
+  <div id="playlist-list"></div>
+</div>
+
+<!-- 搜索面板 -->
+<div id="search-panel">
+  <div id="panel-tabs">
+    <span class="panel-tab active" data-tab="search">🔍 搜索</span>
+    <span class="panel-tab" data-tab="playlists">📋 我的歌单</span>
+  </div>
+
+  <!-- 搜索标签 -->
+  <div id="tab-search" class="tab-content active">
+    <div id="search-input-row">
+      <select id="search-source" title="搜索来源">
+        <option value="netease">网易云</option>
+        <option value="qq">QQ音乐</option>
+        <option value="gqb">歌曲宝</option>
+      </select>
+      <input type="text" id="search-input" placeholder="搜索歌曲..." autocomplete="off">
+      <button id="btn-search">搜索</button>
+    </div>
+    <div id="search-results"></div>
+    <div id="search-status"></div>
+  </div>
+
+  <!-- 歌单标签 -->
+  <div id="tab-playlists" class="tab-content">
+    <div id="netease-subtabs">
+      <span class="netease-subtab active" data-subtab="my">📁 我的歌单</span>
+      <span class="netease-subtab" data-subtab="daily">🎵 每日推荐</span>
+      <span class="netease-subtab" data-subtab="record">🕘 最近听过</span>
+    </div>
+    <div id="netease-subtab-my" class="netease-subtab-content active">
+      <div class="netease-pl-section-title" style="padding-top:10px;">我的歌单（本地/导入）</div>
+      <div id="playlist-actions">
+        <button id="btn-import-playlist" class="btn-action">+ 导入歌单</button>
+        <button id="btn-new-playlist" class="btn-action">+ 新建歌单</button>
+      </div>
+      <div id="playlist-list-wrap"></div>
+      <div id="netease-playlist-wrap" class="qqmusic-panel"></div>
+      <div id="qqmusic-playlist-wrap" class="qqmusic-panel"></div>
+    </div>
+    <div id="netease-subtab-daily" class="netease-subtab-content">
+      <div class="netease-panel-header">
+        <span class="netease-record-switch">
+          <span class="record-type platform-type active" data-platform="netease">网易云</span>
+          <span class="record-type platform-type" data-platform="qq">QQ音乐</span>
+        </span>
+        <span id="netease-daily-status" class="netease-panel-status"></span>
+      </div>
+      <div id="netease-daily-list"></div>
+      <div id="qqmusic-daily-status" class="netease-panel-status" style="display:none;"></div>
+      <div id="qqmusic-daily-list" class="qqmusic-panel" style="display:none;"></div>
+    </div>
+    <div id="netease-subtab-record" class="netease-subtab-content">
+      <div class="netease-panel-header">
+        <span class="netease-record-switch">
+          <span class="record-type active" data-record-type="1">本周</span>
+          <span class="record-type" data-record-type="0">全部</span>
+        </span>
+        <span id="netease-record-status" class="netease-panel-status"></span>
+      </div>
+      <div id="netease-record-list"></div>
+    </div>
+    <div id="playlist-status"></div>
+  </div>
+</div>
+
+<!-- 导入弹窗 -->
+<div id="import-dialog" class="dialog-overlay">
+  <div class="dialog-box dialog-import">
+    <div class="dialog-header">
+      <span>导入歌单</span>
+      <button class="btn-dialog-close">✕</button>
+    </div>
+    <div class="dialog-input-area">
+      <p class="dialog-hint">粘贴网易云音乐或 QQ 音乐歌单链接</p>
+      <input type="text" id="import-url-input" placeholder="https://music.163.com/playlist?id=... 或 https://y.qq.com/n/ryqq/playlist/..." autocomplete="off">
+      <input type="text" id="import-name-input" placeholder="歌单名称（可选）" autocomplete="off" style="display:none; margin-top:8px;">
+    </div>
+    <div id="import-preview"></div>
+    <div class="dialog-footer">
+      <span id="import-count"></span>
+      <button id="btn-import-cancel" class="btn-cancel">取消</button>
+      <button id="btn-import-confirm" class="btn-confirm" disabled>全部添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新建歌单弹窗 -->
+<div id="new-playlist-dialog" class="dialog-overlay">
+  <div class="dialog-box dialog-small">
+    <div class="dialog-header">
+      <span>新建歌单</span>
+      <button class="btn-dialog-close">✕</button>
+    </div>
+    <div class="dialog-body">
+      <input type="text" id="new-playlist-name" placeholder="输入歌单名称..." autocomplete="off">
+    </div>
+    <div class="dialog-footer">
+      <button id="btn-new-cancel" class="btn-cancel">取消</button>
+      <button id="btn-new-confirm" class="btn-confirm" disabled>创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- 重命名歌单弹窗 -->
+<div id="rename-dialog" class="dialog-overlay">
+  <div class="dialog-box dialog-small">
+    <div class="dialog-header">
+      <span>重命名歌单</span>
+      <button class="btn-dialog-close">✕</button>
+    </div>
+    <div class="dialog-body">
+      <input type="text" id="rename-input" placeholder="输入新歌单名称..." autocomplete="off">
+    </div>
+    <div class="dialog-footer">
+      <button id="btn-rename-cancel" class="btn-cancel">取消</button>
+      <button id="btn-rename-confirm" class="btn-confirm" disabled>确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 控制栏 -->
+<div id="controls">
+  <div id="progress-wrap">
+    <div id="progress-bar">
+      <div id="progress-fill"></div>
+    </div>
+    <div id="progress-time">
+      <span id="time-current">0:00</span>
+      <span id="time-total">0:00</span>
+    </div>
+  </div>
+
+  <div id="controls-row">
+    <button id="btn-prev" title="上一首">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+    </button>
+    <button id="btn-play" title="播放/暂停">
+      <svg viewBox="0 0 24 24" fill="currentColor" id="icon-play"><path d="M8 5v14l11-7z"/></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor" id="icon-pause" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button id="btn-next" title="下一首">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    </button>
+
+    <div id="volume-wrap">
+      <svg viewBox="0 0 24 24" fill="currentColor" id="volume-icon">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+      </svg>
+      <input type="range" id="volume-slider" min="0" max="100" value="80">
+    </div>
+
+    <button id="btn-mode" title="播放模式">&#128257;</button>
+    <button id="btn-playlist-toggle" title="播放列表">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 6H4v2h10V6zm0 5H4v2h10v-2zm0 5H4v2h10v-2zm6-4V8l-4 3h2v6h-2l4 4 4-4h-2V9h2l-4-3z"/></svg>
+    </button>
+    <button id="btn-search-toggle" title="在线搜索">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+    </button>
+    <button id="btn-settings" title="设置">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+    </button>
+    <button id="btn-min" title="最小化">&#8212;</button>
+    <button id="btn-close" title="退出">&#10005;</button>
+  </div>
+</div>
+
+<script src="player.js"></script>
+<script src="slideshow.js"></script>
+<script src="lyrics.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

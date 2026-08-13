@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>桌面歌词</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      -webkit-app-region: drag; /* 整窗可拖动（锁定后禁用） */
+      user-select: none;
+    }
+    body.locked {
+      -webkit-app-region: no-drag;
+    }
+
+    #dl-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 40px 4px;
+      box-sizing: border-box;
+      gap: 2px;
+    }
+
+    /* hover 触发区：整窗是 drag 区不接收鼠标事件，顶部 16px no-drag 区用于触发控制栏 */
+    #dl-hover-zone {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 16px;
+      -webkit-app-region: no-drag;
+      z-index: 15;
+    }
+
+    /* 控制栏（悬停显示，不参与拖拽） */
+    #dl-controls {
+      position: absolute;
+      top: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      align-items: center;
+      gap: 4px;
+      background: rgba(15, 17, 30, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 18px;
+      padding: 2px 8px;
+      -webkit-app-region: no-drag;
+      z-index: 20;
+    }
+    .dl-btn {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.75);
+      background: transparent;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .dl-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+    .dl-btn.dl-danger:hover {
+      background: rgba(255, 60, 60, 0.4);
+    }
+    .dl-btn.dl-active {
+      color: #7ab8ff;
+    }
+
+    .dl-line {
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      line-height: 1.5;
+    }
+
+    #dl-prev {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.28);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+      display: none; /* 官方双行无"上一句"，永远隐藏 */
+    }
+    #dl-next {
+      /* 字号跟随设置（与当前句相同，由 JS applySettings 设置） */
+      color: rgba(255, 255, 255, 0.38);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+      /* 下一句：左对齐 + 明显缩进（与当前句形成错落），不做对齐设置
+         用百分比随窗口宽度缩放：30% ≈ 234px（780px 窗口），左右距离拉开 */
+      text-align: left;
+      margin-left: 30%;
+    }
+
+    #dl-current {
+      font-size: 26px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.35);
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+    }
+
+    /* 卡拉OK逐字扫光（登录后 YRC/QRC）：整行渐变，已播=设置色，未播=设置未播色（保留明暗层次） */
+    .dl-scan {
+      background: linear-gradient(
+        to right,
+        var(--dl-played, #ffffff) var(--scan-p, 0%),
+        var(--dl-unplayed, #9a9aa8) var(--scan-p, 0%)
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: none; /* text-shadow 破坏渐变，黑色描边改用 drop-shadow */
+      filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.8));
+      transition: none;
+    }
+
+    #dl-empty {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.25);
+    }
+  </style>
+</head>
+<body>
+  <div id="dl-wrap">
+    <!-- hover 触发区：鼠标移到窗口顶部显示控制栏 -->
+    <div id="dl-hover-zone"></div>
+    <!-- 控制栏：打开主界面 / 上一首 / 播放暂停 / 下一首 / 锁定 / 设置 / 关闭 -->
+    <div id="dl-controls">
+      <button class="dl-btn" id="dl-open-main" title="打开主界面">🏠</button>
+      <button class="dl-btn" id="dl-prev-btn" title="上一首">⏮</button>
+      <button class="dl-btn" id="dl-play-btn" title="播放/暂停">▶</button>
+      <button class="dl-btn" id="dl-next-btn" title="下一首">⏭</button>
+      <button class="dl-btn" id="dl-lock-btn" title="锁定（防止移动/误操作）">🔒</button>
+      <button class="dl-btn" id="dl-settings-btn" title="桌面歌词设置">⚙️</button>
+      <button class="dl-btn dl-danger" id="dl-close" title="关闭桌面歌词">✕</button>
+    </div>
+    <div id="dl-prev" class="dl-line"></div>
+    <div id="dl-current" class="dl-line"></div>
+    <div id="dl-next" class="dl-line"></div>
+    <div id="dl-empty" style="display:none;">暂无歌词</div>
+  </div>
+
+  <script src="lyrics.js"></script>
+  <script src="desktop-lyrics.js"></script>
+</body>
+</html>
