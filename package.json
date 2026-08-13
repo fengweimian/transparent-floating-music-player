@@ -1,6 +1,6 @@
 {
   "name": "transparent-music-player",
-  "version": "3.2.25",
+  "version": "3.2.26",
   "description": "全透明无边框音乐播放器，支持在线搜索/全屏图片幻灯片/歌词显示",
   "main": "main.js",
   "scripts": {

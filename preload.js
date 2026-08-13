@@ -13,8 +13,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     confirm: (title, message) => ipcRenderer.invoke("dialog:confirm", title, message),
   },
   fs: {
-    scanFiles: (folderPath, extensions) =>
-      ipcRenderer.invoke("fs:scanFiles", folderPath, extensions),
+    scanFiles: (folderPath, extensions, recursive) =>
+      ipcRenderer.invoke("fs:scanFiles", folderPath, extensions, recursive),
     readFile: (filePath) => ipcRenderer.invoke("fs:readFile", filePath),
     getFileName: (filePath) => ipcRenderer.invoke("fs:getFileName", filePath),
     findCover: (folderPath, trackFileName) => ipcRenderer.invoke("fs:findCover", folderPath, trackFileName),
@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     },
     onAutoLogin: (callback) => {
       ipcRenderer.on("settings:auto-login", () => callback());
+    },
+    onOpenPanel: (callback) => {
+      ipcRenderer.on("settings:open-panel", () => callback());
     },
   },
   screen: {
@@ -126,5 +129,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   app: {
     // 启动自检：检测已保存的网易云/QQ 登录态是否过期（不做登出，只报告）
     startupCheck: () => ipcRenderer.invoke("app:startup-check"),
+    // 界面模板切换（classic/new）：保存设置并重载主窗口，进度通过 onTemplateSwitch 回调
+    switchTemplate: (template) => ipcRenderer.invoke("app:switch-template", template),
+    onTemplateSwitch: (callback) => {
+      ipcRenderer.on("template-switch", (_event, data) => callback(data));
+    },
   },
 });

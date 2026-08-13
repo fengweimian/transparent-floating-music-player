@@ -190,6 +190,26 @@
       </select>
       <div class="info">主题应用到主窗口与设置窗口</div>
     </div>
+
+    <div class="form-group">
+      <label>界面模板</label>
+      <div class="template-row">
+        <select id="template-select" class="font-select">
+          <option value="classic">经典模板（默认）</option>
+          <option value="new">新模板 · 全屏极简</option>
+        </select>
+        <button class="login-btn" id="btn-switch-template" style="flex:0 0 auto;padding:8px 16px;">切换</button>
+      </div>
+      <div class="info">切换后主窗口立即重载应用新模板，界面会短暂刷新</div>
+    </div>
+  </div>
+
+  <!-- 模板切换进度遮罩 -->
+  <div class="switch-overlay" id="switch-overlay" style="display:none">
+    <div class="switch-box">
+      <div class="switch-spinner"></div>
+      <div class="switch-text" id="switch-text">正在切换模板...</div>
+    </div>
   </div>
 
   <div class="section">

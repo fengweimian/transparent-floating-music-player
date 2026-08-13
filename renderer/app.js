@@ -206,7 +206,7 @@
     $("#btn-play").addEventListener("click", () => player.playPause());
     $("#btn-prev").addEventListener("click", () => player.prev());
     $("#btn-next").addEventListener("click", () => player.next());
-    $("#btn-settings").addEventListener("click", () => window.electronAPI.settings.openWindow());
+    $("#btn-settings").addEventListener("click", () => window.openSettingsPanel());
     $("#btn-close").addEventListener("click", () => window.electronAPI.window.close());
     $("#btn-min").addEventListener("click", () => window.electronAPI.window.minimize());
 
@@ -306,7 +306,7 @@
           break;
         case "KeyF": if (e.ctrlKey) { e.preventDefault(); toggleSearchPanel(); } break;
         case "KeyP": if (e.ctrlKey) { e.preventDefault(); togglePlaylistPanel(); } break;
-        case "KeyS": if (e.ctrlKey) { e.preventDefault(); window.electronAPI.settings.openWindow(); } break;
+        case "KeyS": if (e.ctrlKey) { e.preventDefault(); window.openSettingsPanel(); } break;
       }
     });
   }
@@ -502,7 +502,7 @@
       if (clickPath === "settings") {
         item.title = "点击打开设置";
         item.addEventListener("click", () => {
-          window.electronAPI.settings.openWindow();
+          window.openSettingsPanel();
           removeToast(item);
         });
       } else {
@@ -1196,7 +1196,7 @@
     // 菜单：打开设置
     menuOpenSettings.addEventListener("click", () => {
       loginMenu.style.display = "none";
-      window.electronAPI.settings.openWindow(false);
+      window.openSettingsPanel(false);
     });
 
     // 菜单：退出登录（带确认）
@@ -1285,7 +1285,7 @@
     // 菜单：打开设置
     menuQqloginOpenSettings.addEventListener("click", () => {
       qqloginMenu.style.display = "none";
-      window.electronAPI.settings.openWindow(false);
+      window.openSettingsPanel(false);
     });
 
     // 菜单：退出登录（带确认）

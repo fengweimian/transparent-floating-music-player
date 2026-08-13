@@ -1,40 +1,81 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* ===== 设置面板（居中弹出；原独立窗口样式改造，主窗口内嵌使用）=====
+   全局 reset / 主题变量 / 字体 由主窗口 style.css 提供，本文件只含面板专属样式 */
 
-/* 主题变量（与 style.css 一致，settings 窗口独立加载需自带定义） */
-:root {
-  --accent-1: 100, 100, 255;        /* 主渐变起点 */
-  --accent-2: 150, 100, 255;        /* 主渐变终点 */
-  --accent-border: 150, 150, 255;   /* 按钮描边 */
+/* 遮罩：半透明全屏，点击空白关闭
+   ⚠️ 主窗口 html/body 全局 pointer-events:none（透明悬浮窗鼠标穿透），
+      面板必须显式恢复 auto，否则所有内容不可点击 */
+.settings-panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  pointer-events: auto;
 }
-html[data-theme="ocean"] {
-  --accent-1: 0, 180, 220;
-  --accent-2: 0, 120, 220;
-  --accent-border: 0, 170, 230;
-}
-html[data-theme="sunset"] {
-  --accent-1: 255, 140, 80;
-  --accent-2: 255, 90, 150;
-  --accent-border: 255, 150, 110;
-}
-html[data-theme="forest"] {
-  --accent-1: 60, 190, 140;
-  --accent-2: 40, 160, 200;
-  --accent-border: 60, 190, 150;
-}
+.settings-panel-overlay.open { display: flex; }
 
-body {
+/* 面板容器：居中、毛玻璃深色、可滚动 */
+.settings-panel-wrap {
   font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
-  background: #1a1a2e;
   color: #e0e0e0;
-  min-height: 100vh;
+  width: 560px;
+  max-width: 92vw;
+  max-height: 82vh;
   overflow-y: auto;
+  background: rgba(18, 18, 32, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  position: relative;
 }
 
 .settings-window {
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 32px 28px;
+  padding: 20px 28px 16px;
 }
+
+/* 面板头部：标题 + 关闭按钮 */
+.settings-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  background: rgba(18, 18, 32, 0.95);
+  z-index: 2;
+  border-radius: 18px 18px 0 0;
+}
+.settings-panel-head .title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 2px;
+  margin: 0;
+  text-align: left;
+}
+.settings-panel-close {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.settings-panel-close:hover { background: rgba(255, 60, 60, 0.5); color: #fff; }
 
 .title {
   font-size: 22px;
@@ -299,3 +340,30 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   gap: 4px;
   cursor: pointer;
 }
+
+/* ===== 界面模板切换：进度遮罩 ===== */
+.template-row { display: flex; align-items: center; gap: 10px; }
+.template-row .font-select { flex: 1; }
+.switch-overlay {
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.switch-box {
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  padding: 34px 48px; border-radius: 14px;
+  background: rgba(var(--panel-bg-strong), 0.98);
+  border: 1px solid rgba(var(--accent-border), 0.35);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.switch-spinner {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 4px solid rgba(255,255,255,0.15);
+  border-top-color: rgb(var(--accent-1));
+  animation: switch-spin 0.9s linear infinite;
+}
+.switch-text {
+  font-size: 14px; color: #e0e0e0; letter-spacing: 1px;
+  white-space: nowrap;
+}
+@keyframes switch-spin { to { transform: rotate(360deg); } }

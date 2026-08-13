@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>小风音乐</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="settings.css">
 </head>
 <body>
 
@@ -257,9 +258,238 @@
   </div>
 </div>
 
+<!-- ===== 设置面板（居中弹出，替代独立设置窗口）===== -->
+<div class="settings-panel-overlay" id="settings-panel-overlay">
+  <div class="settings-panel-wrap">
+    <div class="settings-panel-head">
+      <span class="title">设置</span>
+      <button class="settings-panel-close" id="btn-close-settings-panel" title="关闭">&#10005;</button>
+    </div>
+    <div class="settings-window">
+  <div class="section">
+    <h2 class="section-title">网易云登录 <span class="info-inline" id="login-account-tip">（可选：登录后支持逐字歌词）</span></h2>
+
+    <!-- 未登录 -->
+    <div class="form-group" id="login-not">
+      <div class="info">不登录也可正常使用全部功能。登录后播放网易云歌曲可获得逐字歌词（KTV 扫光）。</div>
+      <button class="save-btn login-btn" id="btn-login" style="margin-top:8px;">打开网易云音乐网页登录</button>
+      <div id="login-qr-area" style="display:none; text-align:center; margin-top:10px;">
+        <img id="login-qr-img" width="220" height="220" style="border-radius:8px; background:#fff; padding:6px;" alt="登录二维码">
+        <div class="info" id="login-qr-status">等待扫码...</div>
+        <button class="browse-btn" id="btn-login-cancel" style="margin-top:6px;">取消</button>
+      </div>
+    </div>
+
+    <!-- 已登录 -->
+    <div class="form-group" id="login-yes" style="display:none;">
+      <div class="login-user-row">
+        <img id="settings-login-avatar" class="settings-login-avatar" alt="" onerror="this.style.display='none'">
+        <div class="login-user-text">
+          <div class="info" id="login-user-info"></div>
+          <div class="login-vip-info" id="login-vip-info"></div>
+        </div>
+      </div>
+      <button class="browse-btn" id="btn-logout" style="margin-top:10px;">退出登录</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">QQ音乐登录 <span class="info-inline">（可选：登录后可用歌单/每日推荐/最近听过）</span></h2>
+
+    <!-- 未登录 -->
+    <div class="form-group" id="qqlogin-not">
+      <div class="info">不登录也可播放 QQ 音乐歌曲（含逐字歌词）。登录后可查看 QQ 音乐歌单、每日推荐、最近听过。</div>
+      <button class="save-btn login-btn" id="btn-qqlogin" style="margin-top:8px;">打开 QQ 音乐网页登录</button>
+    </div>
+
+    <!-- 已登录 -->
+    <div class="form-group" id="qqlogin-yes" style="display:none;">
+      <div class="login-user-row">
+        <img id="settings-qqlogin-avatar" class="settings-login-avatar" alt="" onerror="this.style.display='none'">
+        <div class="login-user-text">
+          <div class="info" id="qqlogin-user-info"></div>
+        </div>
+      </div>
+      <button class="browse-btn" id="btn-qqlogout" style="margin-top:10px;">退出登录</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">文件夹</h2>
+
+    <div class="form-group">
+      <label>音乐文件夹</label>
+      <div class="folder-row">
+        <input type="text" id="music-folder" class="folder-input" placeholder="选择音乐文件夹..." readonly>
+        <button class="browse-btn" id="btn-music">浏览</button>
+      </div>
+      <div class="info" id="music-count"></div>
+    </div>
+
+    <div class="form-group">
+      <label>图片/视频文件夹</label>
+      <div class="folder-row">
+        <input type="text" id="image-folder" class="folder-input" placeholder="选择图片/视频文件夹..." readonly>
+        <button class="browse-btn" id="btn-image">浏览</button>
+      </div>
+      <div class="info" id="image-count"></div>
+    </div>
+
+    <div class="form-group">
+      <label>下载目录</label>
+      <div class="folder-row">
+        <input type="text" id="download-folder" class="folder-input" placeholder="选择下载保存目录..." readonly>
+        <button class="browse-btn" id="btn-download">浏览</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">幻灯片</h2>
+
+    <div class="form-group">
+      <label>图片切换间隔</label>
+      <div class="slider-row">
+        <input type="range" id="slideshow-interval" min="3" max="30" value="8" step="1">
+        <span class="slider-value" id="interval-value">8s</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">歌词</h2>
+
+    <div class="form-group">
+      <label>字体</label>
+      <select id="lyrics-font" class="font-select">
+        <option value="">默认</option>
+      </select>
+      <div class="info" id="font-count"></div>
+    </div>
+
+    <div class="form-group">
+      <label>字体大小</label>
+      <div class="slider-row">
+        <input type="range" id="lyrics-font-size" min="14" max="40" value="22">
+        <span class="slider-value" id="font-size-value">22px</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>已播放字颜色（逐字歌词）</label>
+      <div class="color-row">
+        <input type="color" id="char-color" value="#ff4d4f">
+        <span class="color-hint" id="char-color-hint">唱到的字会变成这个颜色</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="show-translation">
+        <span>显示歌词翻译（原文下方）</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">桌面歌词</h2>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="desktop-lyrics-toggle">
+        <span>显示桌面歌词（置顶悬浮，可拖动，顶部 ✕ 关闭）</span>
+      </label>
+    </div>
+
+    <div class="form-group" id="desktop-lyrics-settings">
+      <div class="dl-setting-row">
+        <span class="dl-setting-label">行数</span>
+        <label class="radio-label"><input type="radio" name="dl-lines" value="1"> 单行</label>
+        <label class="radio-label"><input type="radio" name="dl-lines" value="2"> 双行</label>
+      </div>
+      <div class="dl-setting-row">
+        <span class="dl-setting-label">字体</span>
+        <select id="dl-font" class="font-select" style="flex:1; min-width:0;"></select>
+        <input type="range" id="dl-font-size" min="14" max="72" value="36" style="flex:1; max-width:120px;">
+        <span class="slider-value" id="dl-font-size-value">36</span>
+      </div>
+      <div class="dl-setting-row">
+        <span class="dl-setting-label">已播字色</span>
+        <input type="color" id="dl-played-color" value="#ffffff">
+        <span class="dl-setting-label" style="margin-left:10px;">未播字色</span>
+        <input type="color" id="dl-unplayed-color" value="#9a9aa8">
+      </div>
+      <div class="dl-setting-row">
+        <span class="dl-setting-label">文字透明度</span>
+        <input type="range" id="dl-opacity" min="0.3" max="1" step="0.05" value="1" style="flex:1;">
+        <span class="slider-value" id="dl-opacity-value">100%</span>
+      </div>
+      <div class="dl-setting-row">
+        <label class="checkbox-label"><input type="checkbox" id="dl-border"> 描边</label>
+        <label class="checkbox-label"><input type="checkbox" id="dl-over-taskbar"> 覆盖任务栏</label>
+        <label class="checkbox-label"><input type="checkbox" id="dl-bold"> 粗体</label>
+      </div>
+      <div class="info">点击桌面歌词顶部的「设置」图标可快速打开本窗口</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">外观</h2>
+
+    <div class="form-group">
+      <label>主题</label>
+      <select id="theme-select" class="font-select">
+        <option value="aurora">极光 · 蓝紫（默认）</option>
+        <option value="ocean">海洋 · 青蓝</option>
+        <option value="sunset">日落 · 橙粉</option>
+        <option value="forest">森林 · 青绿</option>
+      </select>
+      <div class="info">主题应用到主窗口与设置窗口</div>
+    </div>
+
+    <div class="form-group">
+      <label>界面模板</label>
+      <div class="template-row">
+        <select id="template-select" class="font-select">
+          <option value="classic">经典模板（默认）</option>
+          <option value="new">新模板 · 全屏极简</option>
+        </select>
+        <button class="login-btn" id="btn-switch-template" style="flex:0 0 auto;padding:8px 16px;">切换</button>
+      </div>
+      <div class="info">切换后主窗口立即重载应用新模板，界面会短暂刷新</div>
+    </div>
+  </div>
+
+  <!-- 模板切换进度遮罩 -->
+  <div class="switch-overlay" id="switch-overlay" style="display:none">
+    <div class="switch-box">
+      <div class="switch-spinner"></div>
+      <div class="switch-text" id="switch-text">正在切换模板...</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">系统</h2>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="startup-toggle">
+        <span>开机自启</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="save-btn" id="btn-save">保存并应用</button>
+  </div>
+    </div>
+  </div>
+</div>
+
 <script src="player.js"></script>
 <script src="slideshow.js"></script>
 <script src="lyrics.js"></script>
 <script src="app.js"></script>
+<script src="settings-renderer.js"></script>
 </body>
 </html>

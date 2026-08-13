@@ -259,15 +259,12 @@ class Lyrics {
       .map((l, i) => {
         const trans = this.showTranslation ? this.translationFor(i) : "";
         let textHtml;
-        if (l.chars && l.chars.length > 0) {
-          // 有真实逐字时间戳 → 卡拉OK扫光：整行一个渐变容器（不再逐字 span），
-          // 由 updateCharProgress 每帧更新 --scan-p 渐变前沿位置
-          textHtml = `<span class="lyrics-scan" data-idx="${i}" style="--scan-p:0%">${l.chars
-            .map((c) => this.escape(c.text))
-            .join("")}</span>`;
-        } else {
-          textHtml = this.escape(l.text);
-        }
+        // ⚠️ 无论有无逐字时间戳都渲染 .lyrics-scan 容器：
+        //   有 chars → 逐字前沿；无 chars → 行级时间前沿（整行扫光，与新模板一致）
+        const scanText = l.chars && l.chars.length > 0
+          ? l.chars.map((c) => this.escape(c.text)).join("")
+          : this.escape(l.text);
+        textHtml = `<span class="lyrics-scan" data-idx="${i}" style="--scan-p:0%">${scanText}</span>`;
         return `<div class="lyrics-line" data-idx="${i}"><span class="lyrics-text">${textHtml}</span>${
           trans ? `<span class="lyrics-trans">${this.escape(trans)}</span>` : ""
         }</div>`;
@@ -280,10 +277,8 @@ class Lyrics {
 
     const newIdx = this.findLine(currentTime);
     if (newIdx === this.currentIdx) {
-      // 同一行：有逐字数据时持续刷新点亮进度
-      if (this.lines[newIdx] && this.lines[newIdx].chars) {
-        this.updateCharProgress(newIdx, currentTime);
-      }
+      // 同一行：持续刷新扫光进度（有逐字→逐字前沿；无逐字→行级前沿）
+      if (newIdx >= 0) this.updateCharProgress(newIdx, currentTime);
       return;
     }
 
@@ -299,10 +294,8 @@ class Lyrics {
       }
     });
 
-    // 切到新行：有逐字数据时点亮已唱到的字
-    if (newIdx >= 0 && this.lines[newIdx] && this.lines[newIdx].chars) {
-      this.updateCharProgress(newIdx, currentTime);
-    }
+    // 切到新行：刷新扫光进度
+    if (newIdx >= 0) this.updateCharProgress(newIdx, currentTime);
 
     if (newIdx >= 0 && els[newIdx]) {
       els[newIdx].scrollIntoView({ behavior: "smooth", block: "center" });
@@ -310,23 +303,32 @@ class Lyrics {
   }
 
   // 卡拉OK扫光：更新整行渐变的前沿位置（--scan-p）
-  // 原理：找到当前时间所在的字区间，前沿 = (字索引 + 字内进度) / 总字数 × 100%
-  //  → 前沿是连续值，从左到右平滑推进，正在唱的字"一半亮一半暗"，无字粒断点
+  // 有逐字时间戳 → 前沿 = (字索引 + 字内进度) / 总字数 × 100%（连续值，无字粒断点）
+  // 无逐字时间戳 → 前沿 = 行内播放进度（当前行开始 → 下一行开始，最后一行 +6s 兜底），
+  //                    整行扫光效果与新版模板一致
   updateCharProgress(idx, currentTime) {
     const lineEl = this.content.querySelector(`.lyrics-line[data-idx="${idx}"]`);
     if (!lineEl) return;
     const scan = lineEl.querySelector(".lyrics-scan");
-    if (!scan) return; // 无逐字数据
+    if (!scan) return;
     const chars = this.lines[idx].chars;
-    if (!chars || chars.length === 0) return;
-    // 当前时间所在的字区间（chars 按 start 升序）
-    let i = 0;
-    while (i < chars.length - 1 && currentTime >= chars[i + 1].start) i++;
-    // 字内进度：到下一字开始（或该字结束）的线性插值，clamp 0~1
-    const segEnd = i < chars.length - 1 ? chars[i + 1].start : chars[i].start + (chars[i].dur || 0.2);
-    const segDur = Math.max(0.001, segEnd - chars[i].start);
-    const inner = Math.max(0, Math.min(1, (currentTime - chars[i].start) / segDur));
-    const p = ((i + inner) / chars.length) * 100;
+    let p;
+    if (!chars || chars.length === 0) {
+      // 无逐字数据 → 行级时间前沿（行 time 单位是【秒】，最后一行 +6 秒兜底）
+      const start = this.lines[idx].time;
+      const end = idx + 1 < this.lines.length ? this.lines[idx + 1].time : start + 6;
+      const segDur = Math.max(0.001, end - start);
+      p = Math.max(0, Math.min(1, (currentTime - start) / segDur)) * 100;
+    } else {
+      // 当前时间所在的字区间（chars 按 start 升序）
+      let i = 0;
+      while (i < chars.length - 1 && currentTime >= chars[i + 1].start) i++;
+      // 字内进度：到下一字开始（或该字结束）的线性插值，clamp 0~1
+      const segEnd = i < chars.length - 1 ? chars[i + 1].start : chars[i].start + (chars[i].dur || 0.2);
+      const segDur = Math.max(0.001, segEnd - chars[i].start);
+      const inner = Math.max(0, Math.min(1, (currentTime - chars[i].start) / segDur));
+      p = ((i + inner) / chars.length) * 100;
+    }
     scan.style.setProperty("--scan-p", p.toFixed(2) + "%");
   }
 

@@ -30,6 +30,11 @@
   const saveBtn = $("#btn-save");
   const startupToggle = $("#startup-toggle");
   const themeSelect = $("#theme-select");
+  // 界面模板切换
+  const templateSelect = $("#template-select");
+  const btnSwitchTemplate = $("#btn-switch-template");
+  const switchOverlay = $("#switch-overlay");
+  const switchText = $("#switch-text");
 
   // 登录相关 DOM
   const loginNot = $("#login-not");
@@ -100,6 +105,7 @@
 
   function populate() {
     if (settings.theme) themeSelect.value = settings.theme;
+    if (settings.template) templateSelect.value = settings.template;
     applyTheme(settings.theme);
     if (settings.musicFolder) {
       musicFolderEl.value = settings.musicFolder;
@@ -205,6 +211,7 @@
       charColor: charColorInput.value || "#ff4d4f",
       startup: startupToggle.checked,
       theme: themeSelect.value || "aurora",
+      template: templateSelect.value || "classic",
       // 桌面歌词设置
       desktopLyricsLines: parseInt(document.querySelector('input[name="dl-lines"]:checked').value) || 1,
       desktopLyricsFont: dlFontSelect.value || "微软雅黑",
@@ -218,6 +225,14 @@
     };
     await window.electronAPI.settings.save(update);
     await window.electronAPI.settings.setStartup(startupToggle.checked);
+    // 模板变化：走切换流程立即重载主窗口（显示进度遮罩）
+    const prevTemplate = settings.template || "classic";
+    const nextTemplate = templateSelect.value || "classic";
+    if (nextTemplate !== prevTemplate) {
+      switchText.textContent = "正在切换模板...";
+      switchOverlay.style.display = "flex";
+      await window.electronAPI.app.switchTemplate(nextTemplate);
+    }
     // 通知桌面歌词窗口立即应用新设置
     if (desktopLyricsToggle.checked) {
       window.electronAPI.desktopLyrics.applySettings();
@@ -229,6 +244,25 @@
       saveBtn.textContent = "保存并应用";
       saveBtn.style.background = "";
     }, 1500);
+  });
+
+  // ========== 界面模板切换 ==========
+  btnSwitchTemplate.addEventListener("click", async () => {
+    switchText.textContent = "正在切换模板...";
+    switchOverlay.style.display = "flex";
+    try {
+      await window.electronAPI.app.switchTemplate(templateSelect.value || "classic");
+    } catch (e) {
+      switchText.textContent = "切换失败：" + e.message;
+      setTimeout(() => { switchOverlay.style.display = "none"; }, 2000);
+    }
+  });
+
+  window.electronAPI.app.onTemplateSwitch((data) => {
+    if (data && data.stage === "done") {
+      switchText.textContent = "切换完成";
+      setTimeout(() => { switchOverlay.style.display = "none"; }, 700);
+    }
   });
 
   // ========== 网易云登录 ==========
@@ -337,9 +371,13 @@
     showLoginState(false);
   });
 
-  // 主窗口右上角点击登录 → 自动弹出扫码
+  // 主窗口/主进程请求自动登录 → 打开设置面板并弹出扫码
   window.electronAPI.settings.onAutoLogin(() => {
-    startLogin();
+    openSettingsPanel(true);
+  });
+  // 主进程请求打开设置面板（open-settings-window IPC 转发）
+  window.electronAPI.settings.onOpenPanel(() => {
+    openSettingsPanel(false);
   });
 
   // 官方登录窗口扫码成功后（main.js 广播）→ 更新设置页登录状态
@@ -359,4 +397,33 @@
   refreshLoginStatus();
 
   populate();
+
+  // ===== 设置面板开关（居中弹出面板，替代独立设置窗口）=====
+  const settingsOverlay = $("#settings-panel-overlay");
+  const closeSettingsBtn = $("#btn-close-settings-panel");
+  const openSettingsPanel = (autoLogin) => {
+    populate();
+    refreshLoginStatus();
+    if (settingsOverlay) settingsOverlay.classList.add("open");
+    // autoLogin：自动触发网易云扫码登录（登录过期提示/自动登录场景）
+    if (autoLogin) {
+      loginQrStatus.textContent = "等待扫码...";
+      startLogin();
+    }
+  };
+  const closeSettingsPanel = () => {
+    if (settingsOverlay) settingsOverlay.classList.remove("open");
+  };
+  if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", closeSettingsPanel);
+  if (settingsOverlay) {
+    settingsOverlay.addEventListener("click", (e) => {
+      if (e.target === settingsOverlay) closeSettingsPanel();
+    });
+    // Esc 关闭
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && settingsOverlay.classList.contains("open")) closeSettingsPanel();
+    });
+  }
+  window.openSettingsPanel = openSettingsPanel;
+  window.closeSettingsPanel = closeSettingsPanel;
 })();
