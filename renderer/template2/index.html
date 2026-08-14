@@ -7,6 +7,13 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  /* 主题变量（applyTheme() 会按设置覆写 --a1/--a2/--panel，切换主题立即可见） */
+  :root {
+    --a1: 100, 140, 255;   /* 主题主色 1（默认极光·蓝紫） */
+    --a2: 120, 100, 255;   /* 主题主色 2 */
+    --panel: 18, 18, 32;   /* 面板底色 */
+  }
+
   html, body {
     width: 100%; height: 100%;
     overflow: hidden;
@@ -21,8 +28,8 @@
   .bg {
     position: fixed; inset: 0; z-index: 0;
     background:
-      radial-gradient(1100px 700px at 78% 20%, rgba(72, 62, 130, 0.55), transparent 60%),
-      radial-gradient(900px 620px at 15% 85%, rgba(42, 80, 120, 0.45), transparent 60%),
+      radial-gradient(1100px 700px at 78% 20%, rgba(var(--a1), 0.55), transparent 60%),
+      radial-gradient(900px 620px at 15% 85%, rgba(var(--a2), 0.45), transparent 60%),
       linear-gradient(160deg, #12121f 0%, #0b0b16 55%, #07070d 100%);
     transition: background 0.8s;
   }
@@ -32,8 +39,8 @@
   }
   .bg.has-cover {
     background:
-      radial-gradient(1100px 700px at 78% 20%, rgba(90, 90, 150, 0.5), transparent 60%),
-      radial-gradient(900px 620px at 15% 85%, rgba(60, 80, 130, 0.4), transparent 60%),
+      radial-gradient(1100px 700px at 78% 20%, rgba(var(--a1), 0.5), transparent 60%),
+      radial-gradient(900px 620px at 15% 85%, rgba(var(--a2), 0.4), transparent 60%),
       linear-gradient(160deg, #14141f 0%, #0d0d16 55%, #08080d 100%);
   }
   /* 幻灯片图片层 */
@@ -199,13 +206,14 @@
   .progress-track { position: relative; width: 100%; height: 2px; border-radius: 1px; background: rgba(255,255,255,0.22); }
   .progress-fill {
     position: absolute; left: 0; top: 0; height: 100%; width: 0%;
-    border-radius: 1px; background: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.6);
+    border-radius: 1px; background: linear-gradient(90deg, rgb(var(--a1)), rgb(var(--a2)));
+    box-shadow: 0 0 8px rgba(var(--a2), 0.6);
   }
   .progress-dot {
     position: absolute; top: 50%; left: 0%;
     width: 9px; height: 9px; border-radius: 50%;
-    background: #fff; transform: translate(-50%, -50%);
-    box-shadow: 0 0 10px rgba(255,255,255,0.9);
+    background: rgb(var(--a2)); transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px rgba(var(--a2), 0.9);
   }
   .time-row { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; margin-top: -6px; }
 
@@ -227,7 +235,7 @@
   .panel {
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
     z-index: 40; width: 560px; max-width: 90vw; max-height: 76vh;
-    background: rgba(18,18,32,0.94);
+    background: rgba(var(--panel), 0.94);
     backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.6);
@@ -475,6 +483,66 @@
     color: #fff;
   }
 
+  /* ===== 右上角登录入口（未登录→登录按钮；已登录→头像+昵称徽标）===== */
+  #login-entry {
+    display: flex;
+    align-items: center;
+    margin-right: 2px;
+  }
+  #login-entry #btn-login-entry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+    line-height: 1;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  #login-entry #btn-login-entry:hover { background: rgba(255,255,255,0.22); color: #fff; transform: scale(1.06); }
+  #login-entry #btn-login-entry:active { transform: scale(0.94); }
+  #login-summary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px 0 4px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  #login-summary:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.3); transform: scale(1.03); }
+  #login-summary:active { transform: scale(0.97); }
+  #login-avatars { display: flex; }
+  #login-avatars img,
+  #login-avatars .login-avatar-placeholder {
+    width: 26px; height: 26px; border-radius: 50%; object-fit: cover;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(var(--panel), 0.9);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+  }
+  #login-avatars img + img,
+  #login-avatars img + .login-avatar-placeholder,
+  #login-avatars .login-avatar-placeholder + img,
+  #login-avatars .login-avatar-placeholder + .login-avatar-placeholder { margin-left: -9px; }
+  #login-summary-text {
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    max-width: 110px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* ===== 我的音乐面板（登录后功能）===== */
   .acct-tabs {
     display: flex; gap: 8px; margin-bottom: 14px;
@@ -508,6 +576,22 @@
     background: rgba(255,255,255,0.15);
   }
   .acct-user-name { font-size: 14px; font-weight: 600; color: #fff; }
+  .acct-logout-btn {
+    width: 100%; margin: 2px 0 14px; padding: 9px 0;
+    border-radius: 10px; border: 1px solid rgba(255,80,80,0.4);
+    background: rgba(255,60,60,0.12); color: rgba(255,110,110,0.95);
+    font-size: 13px; font-family: inherit; cursor: pointer;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+  }
+  .acct-logout-btn:hover { background: rgba(255,60,60,0.25); color: #fff; transform: translateY(-1px); }
+  .acct-logout-btn:active { transform: scale(0.97); }
+  /* 酷狗二维码登录 */
+  .kg-qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 10px; }
+  .kg-qr-img { width: 190px; height: 190px; border-radius: 12px; background: #fff; padding: 6px; box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
+  .kg-qr-img img { width: 100%; height: 100%; display: block; border-radius: 8px; }
+  .kg-qr-status { font-size: 13px; color: rgba(255,255,255,0.65); min-height: 18px; }
+  .kg-qr-refresh { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 6px 16px; font-size: 12px; cursor: pointer; }
+  .kg-qr-refresh:hover { background: rgba(255,255,255,0.22); }
   .acct-section-title {
     margin: 16px 0 8px; font-size: 12px; letter-spacing: 2px;
     color: rgba(255,255,255,0.45); font-weight: 500;
@@ -619,6 +703,17 @@
 
 <!-- 窗口控制（桌面版：最小化/退出；浏览器预览自动隐藏） -->
 <div class="window-controls" id="window-controls">
+  <!-- 右上角登录入口：未登录→登录按钮；已登录→头像叠加+昵称徽标（点击打开我的音乐） -->
+  <div id="login-entry" title="账号与登录">
+    <button id="btn-login-entry">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span id="login-btn-text">登录</span>
+    </button>
+    <div id="login-summary" style="display:none">
+      <div id="login-avatars"></div>
+      <span id="login-summary-text"></span>
+    </div>
+  </div>
   <button id="win-min" title="最小化">&#8212;</button>
   <button id="win-close" title="退出">&#10005;</button>
 </div>
@@ -737,9 +832,6 @@
 
 <!-- 更多菜单 -->
 <div class="more-menu" id="more-menu">
-  <div class="menu-item" id="menu-login-netease"><span>登录网易云</span></div>
-  <div class="menu-item" id="menu-login-qq"><span>登录QQ音乐</span></div>
-  <div class="menu-divider"></div>
   <div class="menu-item" id="menu-local"><span>选择音乐文件夹</span></div>
   <div class="menu-item" id="menu-import"><span>导入歌单</span></div>
   <div class="menu-item" id="menu-playlists"><span>我的歌单</span></div>
@@ -754,12 +846,13 @@
   <div class="panel-header">
     <span class="panel-title">我的音乐</span>
     <span class="panel-sub" id="account-status"></span>
-    <button class="panel-close" data-close="account-panel">✕</button>
+    <button class="panel-close" data-close="account-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
   </div>
   <div class="panel-body" id="account-body">
     <div class="acct-tabs">
       <button class="acct-tab active" data-atab="netease">网易云</button>
       <button class="acct-tab" data-atab="qq">QQ音乐</button>
+      <button class="acct-tab" data-atab="kugou">酷狗</button>
     </div>
     <div id="account-content"></div>
   </div>
@@ -770,7 +863,7 @@
   <div class="panel-header">
     <span class="panel-title">在线搜索</span>
     <span class="panel-sub" id="search-status"></span>
-    <button class="panel-close" data-close="search-panel">✕</button>
+    <button class="panel-close" data-close="search-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
   </div>
   <!-- 横向渠道选择栏：搜索后显示，切换渠道自动刷新 -->
   <div class="search-channels" id="search-channels">
@@ -791,7 +884,7 @@
   <div class="panel-header">
     <span class="panel-title">播放队列</span>
     <span class="panel-sub" id="queue-count">0 首</span>
-    <button class="panel-close" data-close="queue-panel">✕</button>
+    <button class="panel-close" data-close="queue-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
   </div>
   <div class="panel-body" id="queue-list"></div>
   <div class="panel-footer">
@@ -804,7 +897,7 @@
   <div class="panel-header">
     <span class="panel-title">我的歌单</span>
     <span class="panel-sub" id="pl-count">0 个</span>
-    <button class="panel-close" data-close="playlists-panel">✕</button>
+    <button class="panel-close" data-close="playlists-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
   </div>
   <div class="panel-body" id="playlists-list"></div>
   <div class="panel-footer">
@@ -817,7 +910,7 @@
 <div class="panel" id="settings-panel">
   <div class="panel-header">
     <span class="panel-title">设置</span>
-    <button class="panel-close" data-close="settings-panel">✕</button>
+    <button class="panel-close" data-close="settings-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
   </div>
   <div class="panel-body">
     <div class="set-group">
@@ -981,6 +1074,7 @@
 <script src="../shared/api.js"></script>
 <script src="../shared/account.js"></script>
 <script src="../shared/lyrics-parse.js"></script>
+<script src="../shared/utils.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

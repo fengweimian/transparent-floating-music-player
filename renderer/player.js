@@ -273,7 +273,7 @@ class MusicPlayer {
       return;
     }
     const seq = ++this._loadSeq;
-    const result = await window.electronAPI.music.url(track.id, track.server);
+    const result = { url: await XFApi.url(track.id, track.server) };
     if (seq !== this._loadSeq) return; // 已被更新的切歌请求取代
     if (!result || !result.url) {
       this._emit("error", { message: "无法获取播放地址" });
@@ -296,7 +296,7 @@ class MusicPlayer {
     this.currentTrack = track;
 
     if (track.type === "online") {
-      const result = await window.electronAPI.music.url(track.id, track.server);
+      const result = { url: await XFApi.url(track.id, track.server) };
       if (seq !== this._loadSeq) return;
       if (!result || !result.url) {
         this._emit("error", { message: "无法获取播放地址" });
@@ -321,7 +321,7 @@ class MusicPlayer {
     this.currentTrack = track;
 
     if (track.type === "online") {
-      const result = await window.electronAPI.music.url(track.id, track.server);
+      const result = { url: await XFApi.url(track.id, track.server) };
       if (seq !== this._loadSeq) return; // 竞态：已被更新的切歌取代
       if (!result || !result.url) {
         this._emit("error", { message: "无法获取播放地址" });

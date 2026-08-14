@@ -1,12 +1,12 @@
 // ============================================================
 // 小风音乐 · 共享账号层（renderer/shared/account.js）
-// 网易云 / QQ 音乐登录后数据（我的歌单/红心/每日推荐/最近听过）
-// 仅桌面版可用（需主进程 weapi/QRC 通道）；浏览器预览返回 null
+// 网易云 / QQ 音乐 / 酷狗 登录后数据（我的歌单/红心/每日推荐/最近听过）
+// 仅桌面版可用（需主进程 weapi/QRC/KG 通道）；浏览器预览返回 null
 // ============================================================
 (function () {
   "use strict";
 
-  const isElectron = !!(window.electronAPI && window.electronAPI.netease && window.electronAPI.qqmusic);
+  const isElectron = !!(window.electronAPI && window.electronAPI.netease && window.electronAPI.qqmusic && window.electronAPI.kugou);
 
   // ---------- 登录状态 ----------
   async function neteaseStatus() {
@@ -148,10 +148,66 @@
     }));
   }
 
+  // ---------- 酷狗音乐 ----------
+  async function kugouStatus() {
+    if (!isElectron) return { loggedIn: false, electron: false };
+    try {
+      const r = await window.electronAPI.kugou.loginStatus();
+      return {
+        loggedIn: !!(r && r.loggedIn),
+        user: (r && r.loggedIn) ? { nick: r.nickname || "", avatar: r.avatarUrl || "" } : null,
+        code: (r && r.loggedIn) ? 200 : 301,
+      };
+    } catch (e) { return { loggedIn: false, error: e.message }; }
+  }
+
+  async function kugouPlaylists() {
+    if (!isElectron) return null;
+    try {
+      const r = await window.electronAPI.kugou.userPlaylists();
+      if (r.code !== 200 || !r.playlists) return [];
+      // 歌单带内嵌歌曲（get_all_list 直接返回 musiclist）
+      return r.playlists.map((p) => ({
+        id: p.id,
+        name: p.name || "",
+        trackCount: p.trackCount || (p.songs ? p.songs.length : 0) || 0,
+        creator: "",
+        songs: p.songs || [],
+      }));
+    } catch (e) { return []; }
+  }
+
+  async function kugouDaily() {
+    if (!isElectron) return null;
+    try {
+      const r = await window.electronAPI.kugou.daily();
+      return {
+        songs: (r.code === 200 && r.songs) ? r.songs : [],
+        playlists: [],
+      };
+    } catch (e) { return { songs: [], playlists: [] }; }
+  }
+
+  function mapKugouSongs(r) {
+    const list = (r && r.songs) || (r && r.list) || [];
+    if (!Array.isArray(list)) return [];
+    return list.map((s) => ({
+      id: String(s.hash || s.song_hash || s.id || ""),
+      server: "kugou",
+      name: s.songname || s.name || "",
+      artist: (s.singername || (Array.isArray(s.singer) ? s.singer.map((x) => x.name).join(" / ") : "") || s.artist || "").replace(/<[^>]*>/g, ""),
+      album: s.album_name || s.albumname || "",
+      pic: (s.img || s.album_img || "").replace(/\{size\}/g, "480"),
+      url: "",
+      lrcUrl: "",
+    }));
+  }
+
   window.XFAccount = {
     isElectron,
     neteaseStatus,
     qqStatus,
+    kugouStatus,
     neteasePlaylists,
     neteaseLiked,
     neteaseDaily,
@@ -160,5 +216,8 @@
     qqCollectPlaylists,
     qqLiked,
     qqDaily,
+    kugouPlaylists,
+    kugouDaily,
+    mapKugouSongs,
   };
 })();

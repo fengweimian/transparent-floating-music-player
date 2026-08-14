@@ -3,6 +3,10 @@
 (function () {
   "use strict";
 
+  // 工具函数下沉共享层 XFUtils（两模板统一实现）
+  const escapeHtml = XFUtils.escapeHtml;
+  const fmtTime = XFUtils.fmtTime;
+
   // ============ 常量 ============
   const METING = "https://api.i-meto.com/meting/api"; // Meting 公共代理
   const LS_SETTINGS = "xf-settings";
@@ -47,6 +51,12 @@
   const plCount = $("pl-count");
   const settingsPanel = $("settings-panel");
   const motivationEl = $("motivation");
+  // 右上角登录入口（未登录→登录按钮；已登录→头像+昵称徽标）
+  const loginEntry = $("login-entry");
+  const btnLoginEntry = $("btn-login-entry");
+  const loginSummary = $("login-summary");
+  const loginAvatars = $("login-avatars");
+  const loginSummaryText = $("login-summary-text");
 
   // ============ 设置（localStorage 持久化）============
   const defaultSettings = {
@@ -103,6 +113,9 @@
         desktopLyricsBold: !!settings.desktopLyricsBold,
         startup: !!settings.startup,
         downloadFolder: settings.downloadFolder || "",
+        // ⚠️ 文件夹字段仅在本地有值时同步（未选过时为 undefined，避免空串覆盖主进程已有值）
+        ...(settings.musicFolder ? { musicFolder: settings.musicFolder } : {}),
+        ...(settings.imageFolder ? { imageFolder: settings.imageFolder } : {}),
       }).catch(() => {});
     }
   }
@@ -131,6 +144,7 @@
           desktopLyricsBold: main.desktopLyricsBold !== undefined ? !!main.desktopLyricsBold : !!settings.desktopLyricsBold,
           startup: main.startup !== undefined ? !!main.startup : !!settings.startup,
           downloadFolder: main.downloadFolder || settings.downloadFolder || "",
+          musicFolder: main.musicFolder || settings.musicFolder || "",
           imageFolder: main.imageFolder || settings.imageFolder || "",
         });
         settings = merged;
@@ -159,6 +173,7 @@
     const root = document.documentElement.style;
     root.setProperty("--a1", c.a1);
     root.setProperty("--a2", c.a2);
+    root.setProperty("--panel", c.panel);
   }
 
   // ============ 播放器核心（本地+在线统一队列）============
@@ -251,7 +266,7 @@
       if (mi >= 0) { modeIdx = mi; updateModeIcon(); }
       // 恢复歌词行（local 存了 lrc 文本；online 播放时 fetchOnlineLrc 重拉）
       const song = queue[currentIdx];
-      if (song && song.lrc) { song._lines = parseLrc(song.lrc); }
+      if (song && song.lrc) { song._lines = XFLyrics.parseLrc(song.lrc); }
       // 恢复 UI：标题/封面/进度/队列
       updateNowPlaying();
       renderQueue();
@@ -481,13 +496,7 @@
       savePlayerState();
     }
   });
-  function fmtTime(sec) {
-    if (!isFinite(sec) || sec < 0) return "0:00";
-    sec = Math.floor(sec);
-    return Math.floor(sec / 60) + ":" + (sec % 60 < 10 ? "0" : "") + (sec % 60);
-  }
 
-  // ============ 界面更新（标题/封面/歌词）============
   function updateNowPlaying() {
     const song = curSong();
     if (!song) return;
@@ -506,7 +515,7 @@
       bg.classList.remove("has-cover");
     }
     // 歌词预解析
-    const lines = song.lrc ? parseLrc(song.lrc) : [];
+    const lines = song.lrc ? XFLyrics.parseLrc(song.lrc) : [];
     song._lines = lines;
     if (!lines.length) {
       lrcPrev.textContent = "";
@@ -546,41 +555,7 @@
     });
   }
 
-  // ============ LRC 解析（含行内翻译）============
-  function parseLrc(text) {
-    const lines = [];
-    const re = /\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
-    const body = (text || "").replace(/^\uFEFF/, "");
-    for (const raw of body.split(/\r?\n/)) {
-      re.lastIndex = 0;
-      let m;
-      const tags = [];
-      while ((m = re.exec(raw)) !== null) {
-        const min = parseInt(m[1]), sec = parseInt(m[2]);
-        let ms = parseInt(m[3] || "0");
-        if (m[3] && m[3].length === 2) ms *= 10;
-        else if (m[3] && m[3].length === 1) ms *= 100;
-        tags.push(min * 60000 + sec * 1000 + ms);
-      }
-      if (tags.length === 0) continue;
-      let content = raw.replace(re, "").trim();
-      if (!content) continue;
-      let trans = "";
-      const m2 = content.match(/[（(]([^（）()]*)[）)]\s*$/);
-      if (m2) {
-        const before = content.slice(0, m2.index).trim();
-        if (/[A-Za-z\u3040-\u30ff]/.test(before) && before) {
-          content = before;
-          trans = m2[1].trim();
-        }
-      }
-      for (const t of tags) lines.push({ time: t, text: content, trans });
-    }
-    lines.sort((a, b) => a.time - b.time);
-    return lines;
-  }
-
-  // 歌词行渲染
+  // ============ 歌词行渲染 ============
   function setLine(el, line, showTrans) {
     if (!line) { el.textContent = ""; return; }
     el.innerHTML = "";
@@ -722,7 +697,7 @@
   btnMore.addEventListener("click", (e) => {
     e.stopPropagation();
     const open = moreMenu.classList.toggle("open");
-    if (open) { closeAllPanels(); updateAccountMenu(); }
+    if (open) { closeAllPanels(); }
   });
 
   // ============ 音量控制（点击音量图标弹出滑杆）============
@@ -786,25 +761,46 @@
     if (e.key === "Escape") { moreMenu.classList.remove("open"); closeAllPanels(); }
   });
 
-  // ============ 菜单登录入口（未登录→登录；已登录→打开我的音乐）============
-  async function updateAccountMenu() {
-    const ne = $("menu-login-netease");
-    const qq = $("menu-login-qq");
-    if (!ne || !qq) return;
-    const set = (el, text, logged) => {
-      el.querySelector("span").textContent = text;
-      el.dataset.logged = logged ? "1" : "0";
-    };
-    if (!XFAccount.isElectron) {
-      set(ne, "登录网易云（需桌面版）", false);
-      set(qq, "登录QQ音乐（需桌面版）", false);
-      return;
-    }
+  // ============ 右上角登录入口（未登录→登录按钮；已登录→头像叠加+昵称徽标）============
+  async function updateLoginEntry() {
+    if (!loginEntry) return;
+    // 浏览器预览：登录不可用，直接隐藏（window-controls 本身也会隐藏，双保险）
+    if (!XFAccount.isElectron) { loginEntry.style.display = "none"; return; }
     try {
-      const ns = await XFAccount.neteaseStatus();
-      const qs = await XFAccount.qqStatus();
-      set(ne, ns.loggedIn ? "网易云 · " + ((ns.profile && ns.profile.nickname) || "已登录") : "登录网易云", ns.loggedIn);
-      set(qq, qs.loggedIn ? "QQ音乐 · " + ((qs.user && qs.user.nick) || "已登录") : "登录QQ音乐", qs.loggedIn);
+      const [ns, qs, ks] = await Promise.all([XFAccount.neteaseStatus(), XFAccount.qqStatus(), XFAccount.kugouStatus()]);
+      const neLogged = !!(ns && ns.loggedIn);
+      const qqLogged = !!(qs && qs.loggedIn);
+      const kgLogged = !!(ks && ks.loggedIn);
+      if (neLogged || qqLogged || kgLogged) {
+        btnLoginEntry.style.display = "none";
+        loginSummary.style.display = "flex";
+        loginAvatars.innerHTML = "";
+        const addAvatar = (url, ch) => {
+          if (url) {
+            const img = document.createElement("img");
+            img.src = url.replace(/^http:/, "https:");
+            img.alt = "";
+            img.onerror = () => { img.style.display = "none"; };
+            loginAvatars.appendChild(img);
+          } else {
+            const ph = document.createElement("div");
+            ph.className = "login-avatar-placeholder";
+            ph.textContent = ch === "netease" ? "云" : (ch === "qq" ? "Q" : "狗");
+            loginAvatars.appendChild(ph);
+          }
+        };
+        if (neLogged) addAvatar(ns.profile && ns.profile.avatarUrl, "netease");
+        if (qqLogged) addAvatar(qs.user && qs.user.avatar, "qq");
+        if (kgLogged) addAvatar(ks.user && ks.user.avatar, "kugou");
+        const names = [];
+        if (neLogged) names.push((ns.profile && ns.profile.nickname) || "网易云");
+        if (qqLogged) names.push((qs.user && qs.user.nick) || "QQ");
+        if (kgLogged) names.push((ks.user && ks.user.nick) || "酷狗");
+        loginSummaryText.textContent = names.join(" · ") || "已登录";
+      } else {
+        loginSummary.style.display = "none";
+        btnLoginEntry.style.display = "flex";
+      }
     } catch (e) { /* 忽略 */ }
   }
 
@@ -816,21 +812,9 @@
     renderAccount();
   }
 
-  $("menu-login-netease").addEventListener("click", (e) => {
-    e.stopPropagation();
-    moreMenu.classList.remove("open");
-    if (e.currentTarget.dataset.logged === "1") openAccountTab("netease");
-    else if (XFAccount.isElectron) window.electronAPI.settings.openWindow(true);
-  });
-  $("menu-login-qq").addEventListener("click", (e) => {
-    e.stopPropagation();
-    moreMenu.classList.remove("open");
-    if (e.currentTarget.dataset.logged === "1") openAccountTab("qq");
-    else if (XFAccount.isElectron) window.electronAPI.qqmusic.login();
-  });
-
   function closeAllPanels() {
     document.querySelectorAll(".panel.open").forEach((p) => p.classList.remove("open"));
+    stopKgQrPoll();   // 关闭面板时停止酷狗二维码轮询
   }
   document.querySelectorAll(".panel-close").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -851,6 +835,18 @@
   const accountContent = $("account-content");
   const accountStatus = $("account-status");
   let accountTab = "netease";
+
+  // 右上角登录入口点击 → 打开"我的音乐"面板（未登录可在此登录，已登录可管理账号/退出）
+  const openAccountPanel = (e) => {
+    e.stopPropagation();
+    moreMenu.classList.remove("open");
+    closeAllPanels();
+    accountPanel.classList.add("open");
+    renderAccount();
+  };
+  if (btnLoginEntry) btnLoginEntry.addEventListener("click", openAccountPanel);
+  if (loginSummary) loginSummary.addEventListener("click", openAccountPanel);
+  updateLoginEntry();   // 初始状态（右上角徽标/登录按钮）
 
   $("menu-account").addEventListener("click", (e) => {
     e.stopPropagation();
@@ -950,7 +946,7 @@
       }
       accountStatus.textContent = st.profile ? st.profile.nickname : "已登录";
       await renderNeteaseAccount(st.profile);
-    } else {
+    } else if (accountTab === "qq") {
       const st = await XFAccount.qqStatus();
       if (!st.loggedIn) {
         accountStatus.textContent = "未登录";
@@ -960,6 +956,150 @@
       }
       accountStatus.textContent = st.user ? st.user.nick : "已登录";
       await renderQqAccount(st.user);
+    } else {
+      // 酷狗：二维码扫码登录（无风控，二维码 base64 直接显示）
+      const st = await XFAccount.kugouStatus();
+      if (!st.loggedIn) {
+        accountStatus.textContent = "未登录";
+        accountContent.innerHTML = "";
+        renderKugouLogin();
+        return;
+      }
+      accountStatus.textContent = st.user ? st.user.nick : "已登录";
+      await renderKugouAccount(st.user);
+    }
+  }
+
+  // ---- 酷狗：二维码登录（生成 → 轮询 2s → status=4 成功）----
+  let kgQrTimer = null;
+  let kgQrKey = "";
+  function stopKgQrPoll() {
+    if (kgQrTimer) { clearInterval(kgQrTimer); kgQrTimer = null; }
+  }
+  async function renderKugouLogin() {
+    stopKgQrPoll();
+    const wrap = document.createElement("div");
+    wrap.className = "kg-qr-wrap";
+    wrap.innerHTML =
+      '<div class="kg-qr-img" id="kg-qr-img"><div class="empty-tip" style="padding:60px 0">二维码加载中...</div></div>' +
+      '<div class="kg-qr-status" id="kg-qr-status">正在生成二维码...</div>' +
+      '<button class="kg-qr-refresh" id="kg-qr-refresh">刷新二维码</button>';
+    accountContent.appendChild(wrap);
+    const imgBox = wrap.querySelector("#kg-qr-img");
+    const statusEl = wrap.querySelector("#kg-qr-status");
+    const refreshBtn = wrap.querySelector("#kg-qr-refresh");
+    refreshBtn.addEventListener("click", () => {
+      stopKgQrPoll();
+      statusEl.textContent = "正在生成二维码...";
+      startKgQr();
+    });
+    // 生成二维码
+    const startKgQr = async () => {
+      try {
+        const r = await window.electronAPI.kugou.qrKey();
+        if (!r || !r.success) {
+          imgBox.innerHTML = '<div class="empty-tip" style="padding:60px 0">二维码获取失败</div>';
+          statusEl.textContent = (r && r.message) || "获取失败";
+          return;
+        }
+        kgQrKey = r.key;
+        imgBox.innerHTML = '<img src="' + r.qrDataUrl + '" alt="酷狗登录二维码">';
+        statusEl.textContent = "请使用酷狗 App 扫码登录";
+        // 轮询（2s）
+        stopKgQrPoll();
+        kgQrTimer = setInterval(async () => {
+          try {
+            const c = await window.electronAPI.kugou.qrCheck(kgQrKey);
+            if (c.status === 4) {
+              stopKgQrPoll();
+              statusEl.textContent = "登录成功！";
+              showFeedback("酷狗登录成功");
+              updateLoginEntry();
+              renderAccount();
+              return;
+            }
+            if (c.status === 2) { statusEl.textContent = "请在手机上确认登录"; return; }
+            if (c.status === 0) {
+              // 二维码过期 → 自动刷新
+              stopKgQrPoll();
+              statusEl.textContent = "二维码已过期，正在刷新...";
+              startKgQr();
+              return;
+            }
+            statusEl.textContent = "等待扫码...";
+          } catch (e) { /* 单次轮询失败忽略 */ }
+        }, 2000);
+      } catch (e) {
+        imgBox.innerHTML = '<div class="empty-tip" style="padding:60px 0">二维码获取失败</div>';
+        statusEl.textContent = e.message || "网络错误";
+      }
+    };
+    startKgQr();
+  }
+
+  // ---- 酷狗：登录后（用户信息 + 我的歌单 + 每日推荐）----
+  async function renderKugouAccount(user) {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = userLineHtml(user.nick || "酷狗用户", user.avatar || "");
+
+    // 退出登录
+    const logoutBtn = document.createElement("button");
+    logoutBtn.className = "acct-logout-btn";
+    logoutBtn.textContent = "退出登录";
+    logoutBtn.addEventListener("click", async () => {
+      if (!window.confirm("确定要退出酷狗登录吗？")) return;
+      try { await window.electronAPI.kugou.logout(); } catch (e) {}
+      showFeedback("已退出酷狗");
+      stopKgQrPoll();
+      updateLoginEntry();
+      renderAccount();
+    });
+    wrap.appendChild(logoutBtn);
+
+    // 我的歌单（get_all_list 内嵌歌曲，直接播放）
+    const pls = await XFAccount.kugouPlaylists();
+    if (pls.length) {
+      const sec = document.createElement("div");
+      sec.innerHTML = '<div class="acct-section-title">我的歌单（' + pls.length + '）</div>' +
+        '<div class="acct-pl-grid">' + pls.map((p) => acctPlCardHtml(Object.assign({ server: "kugou" }, p))).join("") + '</div>';
+      sec.querySelectorAll(".acct-pl-card").forEach((card) => {
+        card.addEventListener("click", () => playKugouPlaylist(card.dataset.plid));
+      });
+      wrap.appendChild(sec);
+    }
+
+    // 每日推荐
+    const daily = await XFAccount.kugouDaily();
+    if (daily.songs.length) {
+      const sec = document.createElement("div");
+      sec.innerHTML = '<div class="acct-section-title">每日推荐（' + daily.songs.length + '）</div>';
+      const list = document.createElement("div");
+      list.innerHTML = daily.songs.slice(0, 100).map((s) => acctSongRowHtml(s)).join("");
+      bindAcctSongRows(list, daily.songs.slice(0, 100));
+      sec.appendChild(list);
+      wrap.appendChild(sec);
+    }
+
+    if (!wrap.querySelector(".acct-pl-grid") && !wrap.querySelector(".song-row")) {
+      wrap.innerHTML += '<div class="empty-tip">暂无可用数据</div>';
+    }
+    accountContent.innerHTML = "";
+    accountContent.appendChild(wrap);
+  }
+
+  // 酷狗歌单 → 播放队列（歌单数据已内嵌，无需额外接口）
+  async function playKugouPlaylist(id) {
+    try {
+      const pls = await XFAccount.kugouPlaylists();
+      const pl = pls.find((p) => String(p.id) === String(id));
+      if (!pl || !pl.songs || !pl.songs.length) { showFeedback("歌单为空或加载失败"); return; }
+      queue.push(...pl.songs.map((s) => buildOnlineSong(s)));
+      renderQueue();
+      playAt(queue.length - pl.songs.length);
+      closeAllPanels();
+      showFeedback("已载入歌单播放");
+    } catch (e) {
+      showFeedback("歌单加载失败：" + e.message);
     }
   }
 
@@ -967,6 +1107,19 @@
   async function renderNeteaseAccount(profile) {
     const wrap = document.createElement("div");
     wrap.innerHTML = userLineHtml(profile.nickname || "网易云用户", profile.avatarUrl || "");
+
+    // 退出登录（右上角账号管理入口复用本面板）
+    const logoutBtn = document.createElement("button");
+    logoutBtn.className = "acct-logout-btn";
+    logoutBtn.textContent = "退出登录";
+    logoutBtn.addEventListener("click", async () => {
+      if (!window.confirm("确定要退出网易云登录吗？")) return;
+      try { await window.electronAPI.login.logout(); } catch (e) {}
+      showFeedback("已退出网易云");
+      updateLoginEntry();
+      renderAccount();
+    });
+    wrap.appendChild(logoutBtn);
 
     // 我的歌单
     const pls = await XFAccount.neteasePlaylists();
@@ -1027,6 +1180,19 @@
   async function renderQqAccount(user) {
     const wrap = document.createElement("div");
     wrap.innerHTML = userLineHtml(user.nick || "QQ音乐用户", user.avatar || "");
+
+    // 退出登录（右上角账号管理入口复用本面板）
+    const logoutBtn = document.createElement("button");
+    logoutBtn.className = "acct-logout-btn";
+    logoutBtn.textContent = "退出登录";
+    logoutBtn.addEventListener("click", async () => {
+      if (!window.confirm("确定要退出QQ音乐登录吗？")) return;
+      try { await window.electronAPI.qqmusic.logout(); } catch (e) {}
+      showFeedback("已退出QQ音乐");
+      updateLoginEntry();
+      renderAccount();
+    });
+    wrap.appendChild(logoutBtn);
 
     const pls = await XFAccount.qqPlaylists();
     if (pls.length) {
@@ -1536,7 +1702,7 @@
       }
       if (!text) { song._lines = []; return; }
       song.lrc = text;
-      song._lines = parseLrc(text);
+      song._lines = XFLyrics.parseLrc(text);
       // ⚠️ QQ 音乐接口返回的 lyric 字段本身是 QRC 格式（[ms,ms]字(偏移,时长)字...），
       //    标准 LRC 解析（parseLrc）解析不出 0 行 → 直接用 QRC 行替换（含逐字时间戳）
       if (!song._lines.length && song.yrc) {
@@ -1605,12 +1771,6 @@
   searchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") searchHint.click();
   });
-
-  function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = String(str == null ? "" : str);
-    return div.innerHTML;
-  }
 
   // ============ 歌单管理（XFStore：桌面版主进程 / 浏览器 localStorage）============
   let playlistsCache = [];
@@ -2183,7 +2343,7 @@
         const lrcPath = folder + "\\" + rel.replace(/\//g, "\\").replace(/\.[^.]+$/, "") + ".lrc";
         try {
           const t = await window.electronAPI.fs.readFile(lrcPath);
-          if (t) { song.lrc = t; song._lines = parseLrc(t); }
+          if (t) { song.lrc = t; song._lines = XFLyrics.parseLrc(t); }
         } catch (e) {}
       }
       loaded.push(song);
@@ -2235,7 +2395,7 @@
     const onLoginChanged = (data) => {
       // 听歌打卡：网易云登录态同步（登录 → 播放网易云歌曲自动上报"最近听过"）
       if (data && typeof data.loggedIn === "boolean") scrobbleLoggedIn = data.loggedIn;
-      updateAccountMenu();
+      updateLoginEntry();
       // 我的音乐面板开着时也刷新
       if (accountPanel.classList.contains("open")) renderAccount();
       if (data && data.loggedIn) {
@@ -2249,6 +2409,18 @@
     }
     if (window.electronAPI.login && window.electronAPI.login.onLoginChanged) {
       window.electronAPI.login.onLoginChanged(onLoginChanged);
+    }
+    // 酷狗登录变化：只刷新 UI（不影响网易云听歌打卡状态）
+    if (window.electronAPI.kugou && window.electronAPI.kugou.onLoginChanged) {
+      window.electronAPI.kugou.onLoginChanged((data) => {
+        updateLoginEntry();
+        if (accountPanel.classList.contains("open")) renderAccount();
+        if (data && data.loggedIn) {
+          showFeedback("酷狗登录成功：" + (data.nickname || ""));
+        } else if (data && data.loggedIn === false) {
+          showFeedback("已退出酷狗");
+        }
+      });
     }
     // 初始网易云登录状态（听歌打卡用）
     XFAccount.neteaseStatus().then((ns) => { scrobbleLoggedIn = !!(ns && ns.loggedIn); }).catch(() => {});

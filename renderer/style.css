@@ -150,6 +150,7 @@ html, body {
   --accent-purple-text: 150, 130, 255; /* 紫色文字 */
   --accent-import: 100, 150, 255;   /* 导入徽章 */
   --accent-load: 100, 180, 255;     /* btn-load 加载按钮 */
+  --accent-border: 100, 180, 255;   /* 边框/描边强调色（设置面板按钮、模板切换遮罩等） */
   /* 面板底色（深色 UI 卡片：搜索/播放列表/toast/弹窗/下拉菜单） */
   --panel-bg: 20, 22, 36;           /* 面板底色 */
   --panel-bg-strong: 30, 30, 45;    /* 更实的面板（弹窗/下拉菜单） */
@@ -167,6 +168,7 @@ html[data-theme="ocean"] {
   --accent-purple-text: 80, 160, 255;
   --accent-import: 0, 170, 230;
   --accent-load: 0, 190, 255;
+  --accent-border: 0, 190, 255;
   --panel-bg: 14, 28, 42;
   --panel-bg-strong: 20, 38, 54;
   --chip-bg: 10, 22, 34;
@@ -183,6 +185,7 @@ html[data-theme="sunset"] {
   --accent-purple-text: 255, 140, 190;
   --accent-import: 255, 150, 110;
   --accent-load: 255, 180, 140;
+  --accent-border: 255, 170, 120;
   --panel-bg: 42, 24, 30;
   --panel-bg-strong: 56, 30, 38;
   --chip-bg: 34, 18, 24;
@@ -199,6 +202,7 @@ html[data-theme="forest"] {
   --accent-purple-text: 100, 210, 170;
   --accent-import: 60, 190, 150;
   --accent-load: 80, 220, 180;
+  --accent-border: 80, 220, 180;
   --panel-bg: 16, 32, 26;
   --panel-bg-strong: 22, 42, 34;
   --chip-bg: 12, 26, 21;
@@ -1658,22 +1662,11 @@ html[data-theme="forest"] {
   to   { opacity: 1; transform: translateX(0); }
 }
 
-/* ===== 右上角登录入口（常驻可见） ===== */
+/* ===== 右上角统一登录入口（常驻可见） ===== */
 #login-entry {
   position: fixed;
   top: 14px;
   right: 16px;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  pointer-events: auto;
-}
-
-/* QQ音乐登录入口：位于网易云入口左侧 */
-#qqlogin-entry {
-  position: fixed;
-  top: 14px;
-  right: 190px;
   z-index: 40;
   display: flex;
   align-items: center;
@@ -1687,69 +1680,6 @@ html[data-theme="forest"] {
   object-fit: contain;
   flex-shrink: 0;
 }
-#qqlogin-entry #btn-qqlogin-entry {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(var(--chip-bg), 0.45);
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition: background 0.2s, color 0.2s;
-}
-#qqlogin-entry #btn-qqlogin-entry:hover {
-  background: rgba(120, 200, 90, 0.25);
-  color: #fff;
-}
-#qqlogin-user-chip {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 10px 4px 4px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(var(--chip-bg), 0.45);
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition: background 0.2s;
-}
-#qqlogin-user-chip:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-#qqlogin-avatar {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: rgba(255, 255, 255, 0.12);
-}
-#qqlogin-nickname {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  max-width: 110px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#qqlogin-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  min-width: 130px;
-  background: rgba(var(--panel-bg-strong), 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(12px);
-  padding-top: 6px;
-  overflow: hidden;
-  z-index: 45;
-}
-
 #btn-login-entry {
   display: flex;
   align-items: center;
@@ -1768,8 +1698,14 @@ html[data-theme="forest"] {
   background: rgba(var(--accent-bg), 0.25);
   color: #fff;
 }
+#btn-login-entry.active {
+  background: rgba(var(--accent-bg), 0.3);
+  color: #fff;
+  border-color: rgba(var(--accent-border), 0.6);
+}
 
-#login-user-chip {
+/* 已登录：合并徽标（多个头像叠加） */
+#login-summary {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1779,19 +1715,41 @@ html[data-theme="forest"] {
   background: rgba(var(--chip-bg), 0.45);
   cursor: pointer;
   backdrop-filter: blur(10px);
-  transition: background 0.2s;
+  transition: background 0.2s, border-color 0.2s;
 }
-#login-user-chip:hover {
+#login-summary:hover,
+#login-summary.active {
   background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(var(--accent-border), 0.6);
 }
-#login-avatar {
+#login-avatars {
+  display: flex;
+}
+#login-avatars img {
   width: 22px;
   height: 22px;
   border-radius: 50%;
   object-fit: cover;
   background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(var(--panel-bg-strong), 0.9);
 }
-#login-nickname {
+#login-avatars img + img {
+  margin-left: -8px;
+}
+#login-avatars .login-avatar-placeholder {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(var(--panel-bg-strong), 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+  font-weight: 600;
+}
+#login-summary-text {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.8);
   max-width: 110px;
@@ -1800,22 +1758,49 @@ html[data-theme="forest"] {
   text-overflow: ellipsis;
 }
 
-/* 已登录下拉菜单 */
+/* 统一账号面板 */
 #login-menu {
   position: absolute;
-  /* top:100% + padding-top 承接间隙：鼠标从入口移到菜单时经过的 6px 属于菜单自身，
-     不会触发入口 mouseleave 导致菜单消失（配合 app.js 的 250ms 延迟隐藏双保险） */
   top: 100%;
   right: 0;
-  min-width: 120px;
-  padding-top: 6px;
-  background: rgba(var(--panel-bg-strong), 0.95);
+  margin-top: 6px;
+  width: 260px;
+  background: rgba(var(--panel-bg-strong), 0.97);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(12px);
-  overflow: hidden;
+  padding: 6px 0;
   z-index: 45;
+}
+#login-menu.show {
+  display: block;
+  animation: login-menu-in 0.15s ease;
+}
+@keyframes login-menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.login-menu-section {
+  padding: 4px 0;
+}
+.login-menu-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+.login-menu-state {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.45);
+}
+.login-menu-state.logged-in {
+  color: rgba(120, 220, 140, 0.9);
 }
 .login-menu-item {
   padding: 8px 14px;
@@ -1833,6 +1818,28 @@ html[data-theme="forest"] {
 }
 .login-menu-item.login-menu-danger:hover {
   background: rgba(255, 60, 60, 0.25);
+}
+.login-menu-channel-btn {
+  color: rgba(var(--accent-border), 0.95) !important;
+}
+.login-menu-channel-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: default;
+}
+.login-menu-channel-info img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.12);
+}
+.login-menu-channel-info span {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .login-menu-divider {
   height: 1px;
@@ -2048,4 +2055,165 @@ html[data-theme="forest"] {
 }
 .qqmusic-panel .netease-pl-grid {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+/* ===== 响应式适配（窗口缩放时布局自适应） ===== */
+/* 中屏：封面缩小，避免遮挡歌词 */
+@media (max-width: 1100px) {
+  #cover-art {
+    right: 36px;
+    width: 180px;
+    max-width: 16vw;
+  }
+}
+
+/* 中小屏：歌词面板收窄、字号略降，播放列表面板按比例收窄 */
+@media (max-width: 900px) {
+  #lyrics {
+    left: 20px;
+    width: 44vw;
+    padding: 24px 20px;
+  }
+  .lyrics-line {
+    font-size: 22px;
+    line-height: 2.6;
+  }
+  #lyrics-content {
+    padding-top: calc(50vh - 100px);
+    padding-bottom: calc(50vh - 100px);
+  }
+  #playlist-panel {
+    width: min(340px, 46vw);
+  }
+}
+
+/* 窄屏（浮动小窗/分屏场景）：面板贴近全宽，隐藏冗余文字 */
+@media (max-width: 760px) {
+  /* 搜索面板接近全宽 */
+  #search-panel {
+    width: 94vw;
+    max-width: 94vw;
+    max-height: 80vh;
+  }
+  /* 播放列表面板左右撑满 */
+  #playlist-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    top: 52px;
+    bottom: 124px;
+  }
+  /* 歌词区域全宽（封面缩小后互不遮挡） */
+  #lyrics {
+    left: 14px;
+    right: 14px;
+    width: auto;
+    max-width: none;
+    top: 26px;
+    bottom: 100px;
+    padding: 20px 16px;
+  }
+  .lyrics-line {
+    font-size: 20px;
+    line-height: 2.4;
+  }
+  .lyrics-trans {
+    font-size: 15px;
+  }
+  #lyrics-content {
+    padding-top: calc(50vh - 90px);
+    padding-bottom: calc(50vh - 90px);
+  }
+  /* 封面缩小靠右 */
+  #cover-art {
+    width: 120px;
+    right: 20px;
+    top: 42%;
+  }
+  #cover-img {
+    border-radius: 10px;
+  }
+  #controls {
+    width: 96vw;
+    bottom: 14px;
+  }
+  /* 登录入口只留图标，节省空间 */
+  #btn-login-entry {
+    padding: 5px 9px;
+  }
+  #login-btn-text {
+    display: none;
+  }
+  #login-summary {
+    padding: 4px 6px 4px 4px;
+  }
+  #login-summary-text {
+    display: none;
+  }
+  #login-avatars img + img {
+    margin-left: -10px;
+  }
+}
+
+/* ===== 空状态（搜索无结果 / 歌单为空 / 列表为空） ===== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 36px 20px;
+  text-align: center;
+  user-select: none;
+}
+.empty-state .empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.empty-state .empty-icon svg {
+  width: 24px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.38);
+}
+.empty-state .empty-title {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  line-height: 1.5;
+}
+.empty-state .empty-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.32);
+  line-height: 1.7;
+  white-space: pre-line;
+  max-width: 300px;
+}
+
+/* ===== 键盘可访问性：focus-visible 焦点样式（Tab 键导航时可见） ===== */
+button:focus-visible,
+select:focus-visible,
+input[type="text"]:focus-visible,
+input[type="search"]:focus-visible,
+input[type="range"]:focus-visible,
+input[type="checkbox"]:focus-visible,
+input[type="color"]:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(var(--accent-border), 0.85);
+  outline-offset: 1px;
+}
+/* 滑块 focus 时把轨道点亮，视觉更明显 */
+input[type="range"]:focus-visible::-webkit-slider-runnable-track {
+  background: rgba(var(--accent-border), 0.5);
+}
+/* 鼠标点击获得的焦点不显示 outline（只对键盘导航显示） */
+:focus:not(:focus-visible) {
+  outline: none;
 }

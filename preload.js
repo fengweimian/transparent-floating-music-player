@@ -126,6 +126,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.on("qqmusic-login-changed", (_event, data) => callback(data));
     },
   },
+  kugou: {
+    // 酷狗二维码登录（v3.3.0 新增，无风控）+ 登录后接口
+    qrKey: () => ipcRenderer.invoke("kugou:qrKey"),
+    qrCheck: (key) => ipcRenderer.invoke("kugou:qrCheck", key),
+    loginStatus: () => ipcRenderer.invoke("kugou:loginStatus"),
+    logout: () => ipcRenderer.invoke("kugou:logout"),
+    userPlaylists: () => ipcRenderer.invoke("kugou:playlists"),
+    daily: () => ipcRenderer.invoke("kugou:daily"),
+    onLoginChanged: (callback) => {
+      ipcRenderer.on("kugou-login-changed", (_event, data) => callback(data));
+    },
+  },
   app: {
     // 启动自检：检测已保存的网易云/QQ 登录态是否过期（不做登出，只报告）
     startupCheck: () => ipcRenderer.invoke("app:startup-check"),

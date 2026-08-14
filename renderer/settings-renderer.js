@@ -426,4 +426,57 @@
   }
   window.openSettingsPanel = openSettingsPanel;
   window.closeSettingsPanel = closeSettingsPanel;
+
+  // ===== 设置面板左侧分区导航（仅主窗口内嵌面板有 #settings-nav）=====
+  const settingsNav = $("#settings-nav");
+  const settingsWin = document.querySelector(".settings-window");
+  if (settingsNav && settingsWin) {
+    const navItems = Array.from(settingsNav.querySelectorAll(".settings-nav-item"));
+    const setActiveNav = (id) => {
+      navItems.forEach((it) => it.classList.toggle("active", it.dataset.target === id));
+    };
+    // 点击导航 → 平滑滚动到对应分区
+    settingsNav.addEventListener("click", (e) => {
+      const item = e.target.closest(".settings-nav-item");
+      if (!item) return;
+      const target = document.getElementById(item.dataset.target);
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const winRect = settingsWin.getBoundingClientRect();
+      settingsWin.scrollTo({
+        top: settingsWin.scrollTop + (rect.top - winRect.top) - 12,
+        behavior: "smooth",
+      });
+      setActiveNav(item.dataset.target);
+    });
+    // 滚动监听 → 高亮当前分区
+    let scrollSpyTimer = null;
+    settingsWin.addEventListener(
+      "scroll",
+      () => {
+        if (scrollSpyTimer) return;
+        scrollSpyTimer = setTimeout(() => {
+          scrollSpyTimer = null;
+          const winRect = settingsWin.getBoundingClientRect();
+          let current = navItems.length ? navItems[0].dataset.target : "";
+          for (const item of navItems) {
+            const sec = document.getElementById(item.dataset.target);
+            if (sec && sec.getBoundingClientRect().top - winRect.top <= 72) {
+              current = item.dataset.target;
+            }
+          }
+          setActiveNav(current);
+        }, 80);
+      },
+      { passive: true }
+    );
+    // 打开面板时重置到顶部
+    const origOpen = openSettingsPanel;
+    openSettingsPanel = (autoLogin) => {
+      origOpen(autoLogin);
+      settingsWin.scrollTop = 0;
+      setActiveNav(navItems.length ? navItems[0].dataset.target : "");
+    };
+    window.openSettingsPanel = openSettingsPanel;
+  }
 })();

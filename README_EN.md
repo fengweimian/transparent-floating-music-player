@@ -17,7 +17,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 ## ✨ Features
 
 ### 🎵 Playback Core
-- **Multi-source search**: NetEase Cloud / QQ Music / 歌曲宝 (Gequbao)
+- **Multi-source search**: NetEase Cloud / QQ Music / Kugou / 歌曲宝 (Gequbao)
 - **Playlist import**: NetEase & QQ Music links (incl. QQ short-link auto-expansion)
 - **Custom playlists**: create / delete / add / remove / rename songs
 - **Play queue**: sequential / shuffle / single-loop, removable & "play next" (insert ahead) items
@@ -49,6 +49,13 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 - Login state also shown in **Settings page** (view status / logout)
 - ⚠️ QQ Music login lasts ~1–3 days (QQ official limit); re-login when expired
 
+### 🎧 Kugou Login (optional)
+- Separate login entry at top-right (in-app QR code scan, no risk-control, secure)
+- **My playlists**: all my playlists (songs embedded, click to play)
+- **Daily recommendation**: recommended songs, click to play
+- **Kugou playback**: free songs play fully; paid/VIP songs get only a 60s preview anonymously (official limit)
+- Login state also shown in **Settings page** (view status / logout)
+
 ### 🎨 Visual & Background
 - **Transparent borderless floating window**, draggable anywhere on the desktop
 - **Background slideshow**: images / videos, adjustable interval, preloading & cross-fade
@@ -70,7 +77,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- `XiaofengMusic-Setup-3.2.28.exe` — NSIS installer (recommended)
+- `XiaofengMusic-Setup-3.3.0.exe` — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 
