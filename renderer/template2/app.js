@@ -510,6 +510,18 @@
       cover.classList.add("has-cover");
       bg.classList.add("has-cover");
     } else {
+      // 搜索/歌单未带封面（酷狗/歌曲宝）→ 调 music.pic 兜底（对齐旧模板：酷狗 getSongInfo / 歌曲宝详情页 mp3_cover）
+      if (song.type === "online" && song.id && XFStore.isElectron) {
+        XFApi.pic(song.id, song.server, song.picId || "").then((u) => {
+          if (u && curSong() === song) {
+            song.cover = u;
+            coverImg.src = u;
+            coverImg.classList.add("show");
+            cover.classList.add("has-cover");
+            bg.classList.add("has-cover");
+          }
+        }).catch(() => {});
+      }
       coverImg.classList.remove("show");
       cover.classList.remove("has-cover");
       bg.classList.remove("has-cover");
@@ -1585,10 +1597,18 @@
   // 当前搜索关键词 + 当前渠道（切换渠道 tab 自动用关键词重新搜索）
   let lastKeyword = "";
   let lastServer = localStorage.getItem("xf-search-server") || "netease";
+  // v3.4.0 移除全民K歌：本地残留的旧渠道值（gqh/tencent）回退到有效渠道
+  if (window.XFSearch && !XFSearch.CHANNELS.some((c) => c.id === lastServer)) {
+    lastServer = lastServer === "tencent" ? "qq" : "netease";
+    localStorage.setItem("xf-search-server", lastServer);
+  }
 
-  // 渠道栏高亮（切换到某渠道时）
+  // 渠道栏：共享模块渲染（网易云/QQ/酷狗/歌曲宝，v3.4.0 移除全民K歌）
   function renderChannels() {
     if (!searchChannels) return;
+    if (window.XFSearch) {
+      XFSearch.populateTabs(searchChannels, lastServer);
+    }
     searchChannels.querySelectorAll(".ch-tab").forEach((t) => {
       t.classList.toggle("active", t.dataset.server === lastServer);
     });
@@ -1679,7 +1699,7 @@
   }
 
   function sourceName(server) {
-    return { netease: "网易云", tencent: "QQ音乐", kugou: "酷狗", gqb: "歌曲宝", gqh: "全民K歌" }[server] || server;
+    return window.XFSearch ? XFSearch.channelName(server) : server;
   }
 
   // 在线歌词拉取（桌面版主进程含逐字 yrc/qrc；浏览器回退 lrcUrl 签名地址）
@@ -2190,6 +2210,16 @@
       $("download-folder-name").textContent = settings.downloadFolder || "未设置";
       $("download-folder-name").title = settings.downloadFolder || "";
     }
+    // 打开时重置导航到顶部 + 高亮第一项（v3.4.0 分区导航）
+    const navWin = $("settings-window");
+    if (navWin) navWin.scrollTop = 0;
+    const navBar = $("settings-nav");
+    if (navBar) {
+      const first = navBar.querySelector(".settings-nav-item");
+      if (first) {
+        navBar.querySelectorAll(".settings-nav-item").forEach((it) => it.classList.toggle("active", it === first));
+      }
+    }
   }
 
   $("set-slide-interval").addEventListener("input", () => {
@@ -2454,6 +2484,40 @@
         showFeedback("下载失败：" + (info.error || "未知错误"));
       }
     });
+  }
+
+  // 设置面板分区导航（v3.4.0，复刻经典模板：点击滚动 + 滚动监听高亮）
+  const settingsNav = $("settings-nav");
+  const settingsWin = $("settings-window");
+  if (settingsNav && settingsWin) {
+    const navItems = Array.from(settingsNav.querySelectorAll(".settings-nav-item"));
+    const setActiveNav = (id) => {
+      navItems.forEach((it) => it.classList.toggle("active", it.dataset.target === id));
+    };
+    settingsNav.addEventListener("click", (e) => {
+      const item = e.target.closest(".settings-nav-item");
+      if (!item) return;
+      const target = document.getElementById(item.dataset.target);
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const winRect = settingsWin.getBoundingClientRect();
+      settingsWin.scrollTo({ top: settingsWin.scrollTop + (rect.top - winRect.top) - 10, behavior: "smooth" });
+      setActiveNav(item.dataset.target);
+    });
+    let navScrollTimer = null;
+    settingsWin.addEventListener("scroll", () => {
+      if (navScrollTimer) return;
+      navScrollTimer = setTimeout(() => {
+        navScrollTimer = null;
+        const winRect = settingsWin.getBoundingClientRect();
+        let current = navItems.length ? navItems[0].dataset.target : "";
+        for (const item of navItems) {
+          const sec = document.getElementById(item.dataset.target);
+          if (sec && sec.getBoundingClientRect().top - winRect.top <= 64) current = item.dataset.target;
+        }
+        setActiveNav(current);
+      }, 80);
+    }, { passive: true });
   }
 
   // 暴露调试接口

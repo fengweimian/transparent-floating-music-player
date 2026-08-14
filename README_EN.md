@@ -70,6 +70,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 - System tray (background dwell, **double-click tray icon shows main window**)
 - Volume & playback state persistence (restored after restart)
 - Launch on startup (optional)
+- **Settings panel with section navigation** (Appearance / Lyrics / Desktop Lyrics / Slideshow / Quote / General / About — click to scroll + auto-highlight)
 
 ---
 
@@ -77,7 +78,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- `XiaofengMusic-Setup-3.3.1.exe` — NSIS installer (recommended)
+- `XiaofengMusic-Setup-3.4.0.exe` — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 

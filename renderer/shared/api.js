@@ -119,6 +119,18 @@
     return "";
   }
 
+  // ---------- 封面补全（酷狗 getSongInfo / 歌曲宝详情页 mp3_cover / QQ picId 构造）----------
+  async function pic(id, server, picId) {
+    if (!id) return "";
+    if (isElectron) {
+      try {
+        const r = await window.electronAPI.music.pic(id, server, picId || "");
+        return (r && r.pic) || "";
+      } catch (e) { return ""; }
+    }
+    return "";
+  }
+
   // ---------- 歌单详情 ----------
   async function playlist(id, server) {
     if (isElectron) {
@@ -165,6 +177,7 @@
     search,
     lyric,
     url,
+    pic,
     playlist,
     importPlaylist,
     download,

@@ -262,6 +262,8 @@
   .panel-body { flex: 1; overflow-y: auto; padding: 10px; min-height: 0; }
   .panel-body::-webkit-scrollbar { width: 4px; }
   .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+  /* 设置面板：内部滚动交给 settings-window，panel-body 自身不滚 */
+  #settings-panel > .panel-body { display: flex; overflow: hidden; padding: 0; }
   .panel-footer {
     padding: 10px 18px; border-top: 1px solid rgba(255,255,255,0.08);
     display: flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -316,6 +318,20 @@
   /* 设置面板 */
   .set-group { margin-bottom: 18px; }
   .set-title { font-size: 12px; letter-spacing: 2px; color: rgba(255,255,255,0.45); margin-bottom: 10px; text-transform: uppercase; }
+  /* v3.4.0 设置面板分区导航（复刻经典模板）：左导航 + 右滚动内容
+     ⚠️ 用 flex:1 而非 height:100%（父 panel-body 高度是 flex 分配，百分比高度解析失败会导致塌陷无法滚动） */
+  .settings-body { display: flex; gap: 0; flex: 1; min-height: 0; min-width: 0; }
+  .settings-nav {
+    flex: 0 0 92px; border-right: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 6px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto;
+  }
+  .settings-nav-item {
+    padding: 8px 10px; border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.55);
+    cursor: pointer; white-space: nowrap; transition: background 0.13s, color 0.13s;
+  }
+  .settings-nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+  .settings-nav-item.active { background: rgba(255,255,255,0.14); color: #fff; }
+  .settings-window { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 12px 16px; }
   .set-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 13px; min-height: 32px; }
   .set-row > label { width: 96px; flex-shrink: 0; color: rgba(255,255,255,0.75); }
   .set-row select, .set-row input[type="range"] { flex: 1; min-width: 0; }
@@ -865,14 +881,8 @@
     <span class="panel-sub" id="search-status"></span>
     <button class="panel-close" data-close="search-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
   </div>
-  <!-- 横向渠道选择栏：搜索后显示，切换渠道自动刷新 -->
-  <div class="search-channels" id="search-channels">
-    <button class="ch-tab" data-server="netease">网易云</button>
-    <button class="ch-tab" data-server="tencent">QQ音乐</button>
-    <button class="ch-tab" data-server="kugou">酷狗</button>
-    <button class="ch-tab" data-server="gqb">歌曲宝</button>
-    <button class="ch-tab" data-server="gqh">全民K歌</button>
-  </div>
+  <!-- 横向渠道选择栏：搜索后显示，切换渠道自动刷新（由共享模块渲染：网易云/QQ/酷狗/歌曲宝） -->
+  <div class="search-channels" id="search-channels"></div>
   <div class="panel-body" id="search-results"></div>
   <div class="panel-footer">
     <span class="panel-sub">点击播放 · 或加入队列</span>
@@ -913,7 +923,18 @@
     <button class="panel-close" data-close="settings-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
   </div>
   <div class="panel-body">
-    <div class="set-group">
+    <div class="settings-body">
+      <nav class="settings-nav" id="settings-nav">
+        <div class="settings-nav-item active" data-target="sec-appearance">外观</div>
+        <div class="settings-nav-item" data-target="sec-lyrics">歌词</div>
+        <div class="settings-nav-item" data-target="sec-dl">桌面歌词</div>
+        <div class="settings-nav-item" data-target="sec-slideshow">幻灯片</div>
+        <div class="settings-nav-item" data-target="sec-quote">励志句</div>
+        <div class="settings-nav-item" data-target="sec-general">常规</div>
+        <div class="settings-nav-item" data-target="sec-about">关于</div>
+      </nav>
+      <div class="settings-window" id="settings-window">
+    <div class="set-group" id="sec-appearance">
       <div class="set-title">外观</div>
       <div class="set-row">
         <label>主题</label>
@@ -938,7 +959,7 @@
         <span class="set-val" id="slide-interval-val">8s</span>
       </div>
     </div>
-    <div class="set-group">
+    <div class="set-group" id="sec-lyrics">
       <div class="set-title">歌词</div>
       <div class="set-row">
         <label>字号</label>
@@ -962,7 +983,7 @@
         <label class="set-check"><input type="checkbox" id="set-show-scan" checked> 歌词扫光</label>
       </div>
     </div>
-    <div class="set-group">
+    <div class="set-group" id="sec-dl">
       <div class="set-title">桌面歌词</div>
       <div class="set-row">
         <label class="set-check"><input type="checkbox" id="set-dl-on"> 显示桌面歌词（置顶悬浮歌词窗口）</label>
@@ -1008,7 +1029,7 @@
         <label class="set-check"><input type="checkbox" id="set-dl-bold"> 粗体</label>
       </div>
     </div>
-    <div class="set-group">
+    <div class="set-group" id="sec-slideshow">
       <div class="set-title">幻灯片背景</div>
       <div class="set-row">
         <label>图片目录</label>
@@ -1021,13 +1042,13 @@
       </div>
       <div class="set-info">支持图片与视频（mp4/webm/mov/avi/mkv），半透明氛围轮播；视频播完自动切换。未选择时使用默认深色渐变</div>
     </div>
-    <div class="set-group">
+    <div class="set-group" id="sec-quote">
       <div class="set-title">底部励志句</div>
       <div class="set-row">
         <label class="set-check"><input type="checkbox" id="set-quote-on" checked> 显示励志句子</label>
       </div>
     </div>
-    <div class="set-group">
+    <div class="set-group" id="sec-general">
       <div class="set-title">常规</div>
       <div class="set-row">
         <label>下载目录</label>
@@ -1039,10 +1060,12 @@
         <label class="set-check"><input type="checkbox" id="set-startup"> 开机自动启动</label>
       </div>
     </div>
-    <div class="set-group">
+    <div class="set-group" id="sec-about">
       <div class="set-title">关于</div>
       <div class="set-row">
         <span class="panel-sub">小风音乐 · 网页版（HTML 单文件）<br>登录/每日推荐/桌面歌词需桌面版 Electron</span>
+      </div>
+    </div>
       </div>
     </div>
   </div>
@@ -1072,6 +1095,7 @@
 
 <script src="../shared/store.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/search.js"></script>
 <script src="../shared/account.js"></script>
 <script src="../shared/lyrics-parse.js"></script>
 <script src="../shared/utils.js"></script>

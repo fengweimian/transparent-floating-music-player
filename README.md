@@ -70,6 +70,7 @@
 - 系统托盘（后台驻留，**双击托盘图标显示主界面**）
 - 音量持久化、播放状态持久化（重启恢复）
 - 开机自启（可选）
+- **设置面板分区导航**（外观 / 歌词 / 桌面歌词 / 幻灯片 / 励志句 / 常规 / 关于，点击滚动 + 自动高亮）
 
 ---
 
@@ -77,7 +78,7 @@
 
 从 [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases) 下载最新版安装包：
 
-- `XiaofengMusic-Setup-3.3.1.exe` —— NSIS 安装包（推荐）
+- `XiaofengMusic-Setup-3.4.0.exe` —— NSIS 安装包（推荐）
 
 > 仅支持 **Windows x64**。安装时可自定义安装目录。
 

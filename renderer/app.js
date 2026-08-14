@@ -394,6 +394,8 @@
   // ========== Search Panel ==========
 
   function setupSearchPanel() {
+    // 渠道下拉框由共享模块渲染（网易云/QQ/酷狗/歌曲宝）
+    if (window.XFSearch) XFSearch.populateSelect(document.getElementById("search-source"), "netease");
     $("#btn-search-toggle").addEventListener("click", () => toggleSearchPanel());
 
     $("#btn-search").addEventListener("click", () => performSearch());
@@ -416,7 +418,7 @@
     searchInput.select();
     // 首次打开且还没搜过 → 展示引导空状态
     if (searchResults.length === 0 && !searchStatus.textContent) {
-      searchResultsEl.innerHTML = emptyStateHTML("search", "搜索在线歌曲", "支持网易云 / QQ音乐 / 歌曲宝\n输入关键词后回车即可搜索");
+      searchResultsEl.innerHTML = emptyStateHTML("search", "搜索在线歌曲", "支持网易云 / QQ音乐 / 酷狗 / 歌曲宝\n输入关键词后回车即可搜索");
     }
   }
 
@@ -429,7 +431,7 @@
     searchStatus.textContent = "搜索中...";
     searchResultsEl.innerHTML = "";
     try {
-      // 搜索渠道走共享层 XFApi（与新版模板同一套逻辑：网易云/QQ/歌曲宝/全民K歌 + 统一数据结构 + 浏览器 fallback）
+      // 搜索渠道走共享层 XFApi（与新版模板同一套逻辑：网易云/QQ/酷狗/歌曲宝 + 统一数据结构 + 浏览器 fallback）
       const raw = await XFApi.search(keyword, source);
       searchResults = Array.isArray(raw) ? raw : [];
       if (searchResults.length === 0) {

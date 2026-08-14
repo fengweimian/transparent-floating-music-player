@@ -101,7 +101,8 @@
     try {
       const r = await window.electronAPI.qqmusic.userPlaylists();
       if (r.code !== 200 || !r.playlists) return [];
-      return r.playlists.map((p) => ({ id: p.id || p.tid || p.dirid, name: p.name || p.dirname || "", trackCount: p.songnum || p.cnt || 0, creator: "" }));
+      // ⚠️ 主进程 map 输出字段是 trackCount（song_cnt 转换而来），前端直接读它
+      return r.playlists.map((p) => ({ id: p.id || p.tid || p.dirid, name: p.name || p.dirname || "", trackCount: p.trackCount || 0, creator: "", cover: p.cover || "" }));
     } catch (e) { return []; }
   }
 
@@ -110,7 +111,7 @@
     try {
       const r = await window.electronAPI.qqmusic.collectPlaylists();
       if (r.code !== 200 || !r.playlists) return [];
-      return r.playlists.map((p) => ({ id: p.id || p.tid || p.dirid, name: p.name || p.dirname || "", trackCount: p.songnum || p.cnt || 0, creator: "" }));
+      return r.playlists.map((p) => ({ id: p.id || p.tid || p.dirid, name: p.name || p.dirname || "", trackCount: p.trackCount || 0, creator: "", cover: p.cover || "" }));
     } catch (e) { return []; }
   }
 
@@ -141,8 +142,9 @@
       server: "qq",
       name: s.name || s.title || "",
       artist: Array.isArray(s.singer) ? s.singer.map((x) => x.name).join(" / ") : (s.artist || ""),
-      album: (s.album && s.album.name) || s.albumName || "",
-      pic: s.picUrl || (s.album && s.album.mid ? "https://y.gtimg.cn/music/photo_new/T002R300x300M000" + s.album.mid + ".jpg" : ""),
+      album: (s.album && s.album.name) || s.albumName || (typeof s.album === "string" ? s.album : "") || "",
+      // ⚠️ 主进程返回字段是 pic（playlistDetail 已用 album.mid 构造完整封面 URL）；picUrl 仅 Meting/兼容
+      pic: s.pic || s.picUrl || (s.album && s.album.mid ? "https://y.gtimg.cn/music/photo_new/T002R300x300M000" + s.album.mid + ".jpg" : ""),
       url: "",
       lrcUrl: "",
     }));
