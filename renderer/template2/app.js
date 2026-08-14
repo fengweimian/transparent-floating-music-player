@@ -34,7 +34,7 @@
   const lrcNext = $("lrc-next");
   const bg = $("bg");
   const searchInput = $("search-input");
-  const searchSource = $("search-source");
+  const searchChannels = $("search-channels");
   const searchHint = $("search-hint");
   const searchPanel = $("search-panel");
   const searchResults = $("search-results");
@@ -54,12 +54,24 @@
     template: "new",
     slideInterval: 8,
     lyricsSize: 36,
+    lyricsFont: "",
     scanColor: "#ffffff",
     showTranslation: true,
     showScan: true,
     slideEnabled: true,
     quoteEnabled: true,
     desktopLyrics: false,
+    desktopLyricsLines: 1,
+    desktopLyricsFont: "微软雅黑",
+    desktopLyricsFontSize: 36,
+    desktopLyricsPlayedColor: "#ffffff",
+    desktopLyricsUnplayedColor: "#9a9aa8",
+    desktopLyricsOpacity: 1,
+    desktopLyricsBorder: false,
+    desktopLyricsOverTaskbar: true,
+    desktopLyricsBold: false,
+    startup: false,
+    downloadFolder: "",
   };
   let settings = Object.assign({}, defaultSettings, loadJSON(LS_SETTINGS, {}));
 
@@ -76,8 +88,21 @@
         template: settings.template || "classic",
         slideshowInterval: settings.slideInterval || 8,
         lyricsFontSize: settings.lyricsSize || 36,
+        lyricsFont: settings.lyricsFont || "",
         showTranslation: !!settings.showTranslation,
         charColor: settings.scanColor || "#ffffff",
+        desktopLyrics: !!settings.desktopLyrics,
+        desktopLyricsLines: settings.desktopLyricsLines === 2 ? 2 : 1,
+        desktopLyricsFont: settings.desktopLyricsFont || "微软雅黑",
+        desktopLyricsFontSize: settings.desktopLyricsFontSize || 36,
+        desktopLyricsPlayedColor: settings.desktopLyricsPlayedColor || "#ffffff",
+        desktopLyricsUnplayedColor: settings.desktopLyricsUnplayedColor || "#9a9aa8",
+        desktopLyricsOpacity: settings.desktopLyricsOpacity != null ? settings.desktopLyricsOpacity : 1,
+        desktopLyricsBorder: !!settings.desktopLyricsBorder,
+        desktopLyricsOverTaskbar: settings.desktopLyricsOverTaskbar !== false,
+        desktopLyricsBold: !!settings.desktopLyricsBold,
+        startup: !!settings.startup,
+        downloadFolder: settings.downloadFolder || "",
       }).catch(() => {});
     }
   }
@@ -91,9 +116,22 @@
           template: main.template || settings.template || "classic",
           slideInterval: main.slideshowInterval || settings.slideInterval,
           lyricsSize: main.lyricsFontSize || settings.lyricsSize,
+          lyricsFont: main.lyricsFont || settings.lyricsFont || "",
           showTranslation: main.showTranslation !== undefined ? !!main.showTranslation : settings.showTranslation,
           scanColor: main.charColor || settings.scanColor,
           desktopLyrics: main.desktopLyrics !== undefined ? !!main.desktopLyrics : settings.desktopLyrics,
+          desktopLyricsLines: main.desktopLyricsLines !== undefined ? main.desktopLyricsLines : settings.desktopLyricsLines,
+          desktopLyricsFont: main.desktopLyricsFont || settings.desktopLyricsFont || "微软雅黑",
+          desktopLyricsFontSize: main.desktopLyricsFontSize || settings.desktopLyricsFontSize || 36,
+          desktopLyricsPlayedColor: main.desktopLyricsPlayedColor || settings.desktopLyricsPlayedColor || "#ffffff",
+          desktopLyricsUnplayedColor: main.desktopLyricsUnplayedColor || settings.desktopLyricsUnplayedColor || "#9a9aa8",
+          desktopLyricsOpacity: main.desktopLyricsOpacity != null ? main.desktopLyricsOpacity : (settings.desktopLyricsOpacity != null ? settings.desktopLyricsOpacity : 1),
+          desktopLyricsBorder: main.desktopLyricsBorder !== undefined ? !!main.desktopLyricsBorder : !!settings.desktopLyricsBorder,
+          desktopLyricsOverTaskbar: main.desktopLyricsOverTaskbar !== undefined ? main.desktopLyricsOverTaskbar : (settings.desktopLyricsOverTaskbar !== false),
+          desktopLyricsBold: main.desktopLyricsBold !== undefined ? !!main.desktopLyricsBold : !!settings.desktopLyricsBold,
+          startup: main.startup !== undefined ? !!main.startup : !!settings.startup,
+          downloadFolder: main.downloadFolder || settings.downloadFolder || "",
+          imageFolder: main.imageFolder || settings.imageFolder || "",
         });
         settings = merged;
         localStorage.setItem(LS_SETTINGS, JSON.stringify(settings));
@@ -102,6 +140,10 @@
       }
     } catch (e) { /* 主进程不可用时保持 localStorage 设置 */ }
   })();
+
+  // 听歌打卡：网易云歌曲播放够久后上报（每首歌只报一次）
+  let lastScrobbleId = null;
+  let scrobbleLoggedIn = false;
 
   // 应用主题
   function applyTheme() {
@@ -418,6 +460,20 @@
     if (now - lastDlTime > 250) {
       lastDlTime = now;
       forwardDl({ type: "timeupdate", currentTime: t, duration: d });
+    }
+    // 听歌打卡：网易云歌曲播放够久 → 上报到网易云"最近听过"
+    // 阈值 = min(60s, 时长一半)（网易云规则：播放超过 1 分钟或一半才算一次听歌）
+    if (d > 0) {
+      const sc = curSong();
+      if (sc && sc.server === "netease" && scrobbleLoggedIn && lastScrobbleId !== String(sc.id)) {
+        const threshold = Math.min(60, d / 2);
+        if (t >= threshold) {
+          lastScrobbleId = String(sc.id);
+          if (window.electronAPI && window.electronAPI.netease) {
+            window.electronAPI.netease.scrobble(sc.id, Math.floor(t)).catch(() => {});
+          }
+        }
+      }
     }
     // 播放状态持久化：3 秒节流（切模板后无缝恢复进度）
     if (now - _lastStateSave > 3000) {
@@ -740,15 +796,15 @@
       el.dataset.logged = logged ? "1" : "0";
     };
     if (!XFAccount.isElectron) {
-      set(ne, "🔑 登录网易云（需桌面版）", false);
-      set(qq, "🔑 登录QQ音乐（需桌面版）", false);
+      set(ne, "登录网易云（需桌面版）", false);
+      set(qq, "登录QQ音乐（需桌面版）", false);
       return;
     }
     try {
       const ns = await XFAccount.neteaseStatus();
       const qs = await XFAccount.qqStatus();
-      set(ne, ns.loggedIn ? "👤 网易云 · " + ((ns.profile && ns.profile.nickname) || "已登录") : "🔑 登录网易云", ns.loggedIn);
-      set(qq, qs.loggedIn ? "👤 QQ音乐 · " + ((qs.user && qs.user.nick) || "已登录") : "🔑 登录QQ音乐", qs.loggedIn);
+      set(ne, ns.loggedIn ? "网易云 · " + ((ns.profile && ns.profile.nickname) || "已登录") : "登录网易云", ns.loggedIn);
+      set(qq, qs.loggedIn ? "QQ音乐 · " + ((qs.user && qs.user.nick) || "已登录") : "登录QQ音乐", qs.loggedIn);
     } catch (e) { /* 忽略 */ }
   }
 
@@ -1245,6 +1301,19 @@
   }
 
   // ============ 队列渲染 ============
+  // 把队列中某首歌设为"下一曲播放"（插入到当前播放之后）
+  function moveToNext(idx) {
+    if (idx < 0 || idx >= queue.length) return;
+    if (idx === currentIdx) { showFeedback("当前播放的歌曲不能设为下一曲"); return; }
+    const [song] = queue.splice(idx, 1);
+    if (idx < currentIdx) currentIdx--;   // 从前面移除 → 当前索引前移
+    let target = Math.max(0, Math.min(currentIdx + 1, queue.length));
+    queue.splice(target, 0, song);
+    renderQueue();
+    scheduleSaveState();
+    showFeedback("已设为下一曲：\"" + (song.name || "") + "\"");
+  }
+
   function renderQueue() {
     queueCount.textContent = queue.length + " 首";
     queueList.innerHTML = "";
@@ -1256,14 +1325,26 @@
       const row = document.createElement("div");
       row.className = "song-row" + (i === currentIdx ? " playing" : "");
       const thumb = s.cover ? '<img src="' + escapeAttr(s.cover) + '" onerror="this.parentNode.textContent=\'♪\';this.remove()">' : "♪";
+      const dlBtn = s.type === "online" && s.id ? '<button class="act-btn" data-dl="' + i + '">下载</button>' : "";
       row.innerHTML =
         '<div class="song-thumb">' + thumb + '</div>' +
         '<div class="song-info"><div class="song-name"></div><div class="song-artist"></div></div>' +
         '<div class="song-actions"><button class="act-btn play-btn" data-idx="' + i + '">播放</button>' +
+        '<button class="act-btn" data-next="' + i + '" title="设为下一曲播放">下一曲</button>' +
+        dlBtn +
         '<button class="act-btn" data-rm="' + i + '">移除</button></div>';
       row.querySelector(".song-name").textContent = s.name;
       row.querySelector(".song-artist").textContent = (s.artist || "") + (s.source ? " · " + s.source : "");
       row.addEventListener("click", (e) => {
+        if (e.target.closest("[data-dl]")) {
+          const idx = parseInt(e.target.closest("[data-dl]").dataset.dl);
+          downloadOnlineSong(queue[idx]);
+          return;
+        }
+        if (e.target.closest("[data-next]")) {
+          moveToNext(parseInt(e.target.closest("[data-next]").dataset.next));
+          return;
+        }
         if (e.target.closest("[data-rm]")) {
           const idx = parseInt(e.target.closest("[data-rm]").dataset.rm);
           queue.splice(idx, 1);
@@ -1335,8 +1416,33 @@
 
   // ============ 在线搜索（XFApi：桌面版主进程 / 浏览器 Meting）============
   let searchResultsData = [];
+  // 当前搜索关键词 + 当前渠道（切换渠道 tab 自动用关键词重新搜索）
+  let lastKeyword = "";
+  let lastServer = localStorage.getItem("xf-search-server") || "netease";
+
+  // 渠道栏高亮（切换到某渠道时）
+  function renderChannels() {
+    if (!searchChannels) return;
+    searchChannels.querySelectorAll(".ch-tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.server === lastServer);
+    });
+  }
+  if (searchChannels) {
+    searchChannels.addEventListener("click", (e) => {
+      const tab = e.target.closest(".ch-tab");
+      if (!tab) return;
+      const server = tab.dataset.server;
+      if (server === lastServer) return;
+      lastServer = server;
+      localStorage.setItem("xf-search-server", server);
+      renderChannels();
+      // 切换渠道：用当前关键词自动重新搜索
+      if (lastKeyword) performSearch(lastKeyword);
+    });
+  }
+
   async function performSearch(kw) {
-    const server = searchSource.value;
+    const server = lastServer;
     searchResults.innerHTML = '<div class="empty-tip">搜索中...</div>';
     searchStatus.textContent = "正在搜索";
     try {
@@ -1395,14 +1501,14 @@
     return {
       type: "online",
       id: s.id || s.url || "",
-      server: s.server || searchSource.value,
+      server: s.server || lastServer,
       name: s.name || s.title || "未知歌曲",
       artist: s.artist || s.author || "",
       url: s.url || "",
       cover: s.pic || "",
       lrcUrl: s.lrcUrl || s.lrc || "",
       lrc: null,  // 需要时单独拉取
-      source: sourceName(s.server || searchSource.value),
+      source: sourceName(s.server || lastServer),
     };
   }
 
@@ -1467,7 +1573,7 @@
     const name = s.name || s.title || "song";
     const artist = s.artist || s.author || "";
     if (XFStore.isElectron && s.id) {
-      XFApi.download(s.id, s.server || searchSource.value, name, artist);
+      XFApi.download(s.id, s.server || lastServer, name, artist);
       showFeedback("开始下载：" + name);
       return;
     }
@@ -1492,6 +1598,8 @@
     closeAllPanels();
     moreMenu.classList.remove("open");
     searchPanel.classList.add("open");
+    lastKeyword = kw;
+    renderChannels();
     performSearch(kw);
   });
   searchInput.addEventListener("keydown", (e) => {
@@ -1574,13 +1682,20 @@
       pl.songs.forEach((s, si) => {
         const row = document.createElement("div");
         row.className = "song-row";
+        const dlBtn = s.type === "online" && s.id ? '<button class="act-btn" data-dlpl="' + si + '">下载</button>' : "";
         row.innerHTML =
           '<div class="song-thumb">' + (s.cover ? '<img src="' + escapeAttr(s.cover) + '" onerror="this.parentNode.textContent=\'♪\';this.remove()">' : "♪") + '</div>' +
           '<div class="song-info"><div class="song-name"></div><div class="song-artist"></div></div>' +
-          '<div class="song-actions"><button class="act-btn" data-rm="' + si + '">移除</button></div>';
+          '<div class="song-actions">' + dlBtn +
+          '<button class="act-btn" data-rm="' + si + '">移除</button></div>';
         row.querySelector(".song-name").textContent = s.name;
         row.querySelector(".song-artist").textContent = s.artist || "";
         row.addEventListener("click", (e) => {
+          if (e.target.closest("[data-dlpl]")) {
+            const si2 = parseInt(e.target.closest("[data-dlpl]").dataset.dlpl);
+            downloadOnlineSong(pl.songs[si2]);
+            return;
+          }
           if (e.target.closest("[data-rm]")) {
             const si = parseInt(e.target.closest("[data-rm]").dataset.rm);
             const offset = getPlaylistOffset();
@@ -1791,11 +1906,96 @@
     const imgN = slides.filter((s) => s.type === "image").length;
     const vidN = slides.length - imgN;
     $("slide-count").textContent = slides.length + " 个（图片 " + imgN + " / 视频 " + vidN + "）";
+    // ⚠️ 记住选择的根目录 → 写入主进程 imageFolder（跨模板共享 + 下次启动自动加载）
+    if (XFStore.isElectron && files.length) {
+      const f0 = files[0];
+      const abs = f0.path || "";
+      const rel = (f0.webkitRelativePath || "").split("/").join("\\");
+      let root = "";
+      if (abs && rel && abs.endsWith(rel)) root = abs.slice(0, abs.length - rel.length);
+      else if (abs) root = abs.replace(/[\\/][^\\/]*$/, "");
+      if (root) {
+        settings.imageFolder = root;
+        XFStore.saveSettings({ imageFolder: root }).catch(() => {});
+        $("slide-count").textContent = root + " · " + slides.length + " 个（图片 " + imgN + " / 视频 " + vidN + "）";
+      }
+    }
     showFeedback("已加载 " + slides.length + " 个幻灯片背景");
     startSlideshow();
   });
 
+  // 启动自动加载主进程 imageFolder（跨模板共享：经典模板设置的背景文件夹这里也能用，重启不丢）
+  async function autoLoadImageFolder() {
+    try {
+      if (!XFStore.isElectron || !window.electronAPI.fs) return;
+      let folder = "";
+      try { const s = await XFStore.getSettings(); folder = s.imageFolder || ""; } catch (e) {}
+      if (!folder) return;
+      const exts = [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".mp4", ".webm", ".mov", ".avi", ".mkv"];
+      const files = await window.electronAPI.fs.scanFiles(folder, exts, true);
+      if (!files || !files.length) return;
+      slides = files.map((f) => {
+        const rel = f.replace(/\\/g, "/");
+        return {
+          type: /\.(mp4|webm|mov|avi|mkv)$/i.test(f) ? "video" : "image",
+          // file:// 直链（分段 encodeURIComponent 处理空格/中文路径）
+          url: "file:///" + folder.replace(/\\/g, "/") + "/" + rel.split("/").map(encodeURIComponent).join("/"),
+          name: f,
+        };
+      });
+      const imgN = slides.filter((s) => s.type === "image").length;
+      $("slide-count").textContent = folder + " · " + slides.length + " 个（图片 " + imgN + " / 视频 " + (slides.length - imgN) + "）";
+      startSlideshow();
+    } catch (e) { /* 目录不可用则保持默认深色渐变 */ }
+  }
+
   // ============ 设置面板 ============
+  // 回填歌词字体选择（populate 与字体列表加载完成后都要调用）
+  function applyLyricsFontSelection() {
+    const sel = $("set-lyrics-font");
+    if (!sel || !settings.lyricsFont) return;
+    if ([...sel.options].some((o) => o.value === settings.lyricsFont)) {
+      sel.value = settings.lyricsFont;
+    }
+  }
+  // 回填桌面歌词字体选择（同样要等字体列表加载完）
+  function applyDlFontSelection() {
+    const sel = $("set-dl-font");
+    if (!sel) return;
+    const font = settings.desktopLyricsFont || "微软雅黑";
+    if ([...sel.options].some((o) => o.value === font)) {
+      sel.value = font;
+    }
+  }
+
+  // 加载系统字体列表（异步；⚠️ 字体列表就绪后再回填保存的字体，否则选项不存在显示"默认"）
+  (async function loadLyricsFonts() {
+    try {
+      if (!window.electronAPI || !window.electronAPI.fonts) return;
+      const fonts = await window.electronAPI.fonts.list();
+      const sel = $("set-lyrics-font");
+      if (sel) {
+        fonts.forEach((f) => {
+          const opt = document.createElement("option");
+          opt.value = f;
+          opt.textContent = f;
+          sel.appendChild(opt);
+        });
+      }
+      const dlSel = $("set-dl-font");
+      if (dlSel) {
+        fonts.forEach((f) => {
+          const opt = document.createElement("option");
+          opt.value = f;
+          opt.textContent = f;
+          dlSel.appendChild(opt);
+        });
+      }
+      applyLyricsFontSelection();
+      applyDlFontSelection();
+    } catch (e) { /* 字体加载失败，仅"默认"选项 */ }
+  })();
+
   function populateSettings() {
     $("set-theme").value = settings.theme;
     if ($("set-template")) $("set-template").value = settings.template || "classic";
@@ -1808,6 +2008,28 @@
     $("set-show-scan").checked = settings.showScan;
     $("set-slide-on").checked = settings.slideEnabled;
     $("set-quote-on").checked = settings.quoteEnabled;
+    applyLyricsFontSelection();
+    // 桌面歌词
+    if ($("set-dl-on")) {
+      $("set-dl-on").checked = !!settings.desktopLyrics;
+      $("set-dl-lines").value = settings.desktopLyricsLines === 2 ? "2" : "1";
+      $("set-dl-size").value = settings.desktopLyricsFontSize || 36;
+      $("dl-size-val").textContent = $("set-dl-size").value + "px";
+      $("set-dl-played").value = settings.desktopLyricsPlayedColor || "#ffffff";
+      $("set-dl-unplayed").value = settings.desktopLyricsUnplayedColor || "#9a9aa8";
+      $("set-dl-opacity").value = Math.round((settings.desktopLyricsOpacity != null ? settings.desktopLyricsOpacity : 1) * 100);
+      $("dl-opacity-val").textContent = $("set-dl-opacity").value + "%";
+      $("set-dl-border").checked = !!settings.desktopLyricsBorder;
+      $("set-dl-taskbar").checked = settings.desktopLyricsOverTaskbar !== false;
+      $("set-dl-bold").checked = !!settings.desktopLyricsBold;
+      applyDlFontSelection();
+    }
+    // 常规
+    if ($("set-startup")) {
+      $("set-startup").checked = !!settings.startup;
+      $("download-folder-name").textContent = settings.downloadFolder || "未设置";
+      $("download-folder-name").title = settings.downloadFolder || "";
+    }
   }
 
   $("set-slide-interval").addEventListener("input", () => {
@@ -1815,23 +2037,76 @@
   });
   $("set-lyrics-size").addEventListener("input", () => {
     $("lyrics-size-val").textContent = $("set-lyrics-size").value + "px";
+    // 实时预览字号（未保存不持久化，保存按钮才写入 settings）
+    const px = parseInt($("set-lyrics-size").value) || 36;
+    const root = document.documentElement.style;
+    root.setProperty("--lyrics-size", px + "px");
+    root.setProperty("--lyrics-size-current", (px + 8) + "px");
+  });
+  $("set-dl-size").addEventListener("input", () => {
+    $("dl-size-val").textContent = $("set-dl-size").value + "px";
+  });
+  $("set-dl-opacity").addEventListener("input", () => {
+    $("dl-opacity-val").textContent = $("set-dl-opacity").value + "%";
+  });
+  $("btn-pick-download").addEventListener("click", async () => {
+    if (!XFStore.isElectron || !window.electronAPI.dialog) { showFeedback("请使用桌面版设置下载目录"); return; }
+    const folder = await window.electronAPI.dialog.selectFolder();
+    if (folder) {
+      settings.downloadFolder = folder;
+      $("download-folder-name").textContent = folder;
+      $("download-folder-name").title = folder;
+      // 立即持久化（不必等保存按钮，下载立即可用）
+      localStorage.setItem(LS_SETTINGS, JSON.stringify(settings));
+      XFStore.saveSettings({ downloadFolder: folder }).catch(() => {});
+      showFeedback("下载目录已设置");
+    }
   });
 
   $("btn-save-settings").addEventListener("click", async () => {
+    const prevDlOn = !!settings.desktopLyrics;
     settings.theme = $("set-theme").value;
     settings.slideInterval = parseInt($("set-slide-interval").value) || 8;
     settings.lyricsSize = parseInt($("set-lyrics-size").value) || 36;
+    settings.lyricsFont = $("set-lyrics-font") ? $("set-lyrics-font").value || "" : "";
     settings.scanColor = $("set-scan-color").value || "#ffffff";
     settings.showTranslation = $("set-show-trans").checked;
     settings.showScan = $("set-show-scan").checked;
     settings.slideEnabled = $("set-slide-on").checked;
     settings.quoteEnabled = $("set-quote-on").checked;
+    // 桌面歌词
+    settings.desktopLyrics = $("set-dl-on") ? $("set-dl-on").checked : settings.desktopLyrics;
+    settings.desktopLyricsLines = parseInt(($("set-dl-lines") || {}).value) || 1;
+    settings.desktopLyricsFont = $("set-dl-font") ? $("set-dl-font").value || "微软雅黑" : settings.desktopLyricsFont;
+    settings.desktopLyricsFontSize = parseInt($("set-dl-size").value) || 36;
+    settings.desktopLyricsPlayedColor = $("set-dl-played").value || "#ffffff";
+    settings.desktopLyricsUnplayedColor = $("set-dl-unplayed").value || "#9a9aa8";
+    settings.desktopLyricsOpacity = (parseInt($("set-dl-opacity").value) || 100) / 100;
+    settings.desktopLyricsBorder = $("set-dl-border").checked;
+    settings.desktopLyricsOverTaskbar = $("set-dl-taskbar").checked;
+    settings.desktopLyricsBold = $("set-dl-bold").checked;
+    // 常规
+    const prevStartup = !!settings.startup;
+    settings.startup = $("set-startup") ? $("set-startup").checked : settings.startup;
+    settings.downloadFolder = settings.downloadFolder || "";
     // 界面模板切换（桌面版：保存后主窗口重载应用新模板）
     const nextTemplate = $("set-template") ? $("set-template").value : "classic";
     const prevTemplate = settings.template || "classic";
     settings.template = nextTemplate;
     saveSettings();
     applyAllSettings();
+    // 桌面歌词：开关变化 → 打开/关闭窗口；开启中改设置 → 立即应用
+    if (XFStore.isElectron && window.electronAPI.desktopLyrics) {
+      if (prevDlOn !== settings.desktopLyrics) {
+        window.electronAPI.desktopLyrics.toggle(settings.desktopLyrics);
+      } else if (settings.desktopLyrics) {
+        window.electronAPI.desktopLyrics.applySettings();
+      }
+    }
+    // 开机自启：变化时立即写入系统登录项
+    if (XFStore.isElectron && prevStartup !== settings.startup && window.electronAPI.settings && window.electronAPI.settings.setStartup) {
+      window.electronAPI.settings.setStartup(settings.startup).catch(() => {});
+    }
     if (XFStore.isElectron && nextTemplate !== prevTemplate) {
       showFeedback("正在切换界面模板...");
       await window.electronAPI.app.switchTemplate(nextTemplate);
@@ -1848,6 +2123,12 @@
     const root = document.documentElement.style;
     root.setProperty("--lyrics-size", settings.lyricsSize + "px");
     root.setProperty("--lyrics-size-current", (settings.lyricsSize + 8) + "px");
+    // 歌词字体（留空回退默认字体栈）
+    if (settings.lyricsFont) {
+      root.setProperty("--lyrics-font", settings.lyricsFont + ', "Microsoft YaHei", "PingFang SC", sans-serif');
+    } else {
+      root.removeProperty("--lyrics-font");
+    }
     // 励志句
     motivationEl.style.display = settings.quoteEnabled ? "" : "none";
     // 幻灯片
@@ -1922,6 +2203,7 @@
   restorePlayerState();
   syncVolumeUI();   // 初始音量 UI（默认 0.8）
   autoLoadMusicFolder();  // 队列为空时自动加载主进程 musicFolder（跨模板共享）
+  autoLoadImageFolder();  // 自动加载主进程 imageFolder（背景文件夹持久化，重启/切模板不丢）
   // 切模板/关闭前兜底保存最新进度（reload 前确保数据最新）
   window.addEventListener("beforeunload", () => savePlayerState());
 
@@ -1951,6 +2233,8 @@
   // 桌面版：登录状态变化实时刷新（QQ / 网易云）
   if (XFAccount.isElectron) {
     const onLoginChanged = (data) => {
+      // 听歌打卡：网易云登录态同步（登录 → 播放网易云歌曲自动上报"最近听过"）
+      if (data && typeof data.loggedIn === "boolean") scrobbleLoggedIn = data.loggedIn;
       updateAccountMenu();
       // 我的音乐面板开着时也刷新
       if (accountPanel.classList.contains("open")) renderAccount();
@@ -1966,6 +2250,8 @@
     if (window.electronAPI.login && window.electronAPI.login.onLoginChanged) {
       window.electronAPI.login.onLoginChanged(onLoginChanged);
     }
+    // 初始网易云登录状态（听歌打卡用）
+    XFAccount.neteaseStatus().then((ns) => { scrobbleLoggedIn = !!(ns && ns.loggedIn); }).catch(() => {});
   }
 
   // 桌面版：启动自检（登录态过期提示）

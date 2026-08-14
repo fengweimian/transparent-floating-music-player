@@ -70,7 +70,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- `XiaofengMusic-Setup-3.2.27.exe` — NSIS installer (recommended)
+- `XiaofengMusic-Setup-3.2.28.exe` — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 

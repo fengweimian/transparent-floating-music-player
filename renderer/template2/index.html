@@ -51,12 +51,16 @@
     transition: opacity 1.2s ease;
     pointer-events: none;
   }
-  .bg .slide-video.on { opacity: 0.28; }
+  .bg .slide-video.on { opacity: 1; }
   /* 幻灯片遮罩（保证白字可读） */
   .bg::before {
     content: ""; position: absolute; inset: 0; z-index: 1;
     background: linear-gradient(180deg, rgba(5,5,10,0.35) 0%, rgba(5,5,10,0.15) 40%, rgba(5,5,10,0.45) 100%);
     pointer-events: none;
+  }
+  /* 视频播放时遮罩大幅减淡，保证视频背景清晰可见（图片仍用原遮罩） */
+  .bg:has(.slide-video.on)::before {
+    background: linear-gradient(180deg, rgba(5,5,10,0.12) 0%, rgba(5,5,10,0.04) 40%, rgba(5,5,10,0.18) 100%);
   }
 
   /* ===== 顶部居中：在线播放（搜索）入口 ===== */
@@ -373,6 +377,7 @@
   }
   .lyric-line {
     font-size: var(--lyrics-size, 26px); font-weight: 500; color: rgba(255,255,255,0.35);
+    font-family: var(--lyrics-font, "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif);
     letter-spacing: 2px; text-shadow: 0 1px 12px rgba(0,0,0,0.4);
     width: 100%;
     white-space: normal; word-break: break-word; line-height: 1.5;
@@ -567,8 +572,9 @@
     transform: translate(-100%, -50%);
     margin-right: 4vw; width: 36vw;
   }
-  body.bg-imported .lyric-line { font-size: 22px; }
-  body.bg-imported .lyric-line.current { font-size: 30px; }
+  /* 歌词 → 右侧，字号跟随设置（按 0.8 缩放适配窄布局，不再硬编码覆盖用户设置） */
+  body.bg-imported .lyric-line { font-size: calc(var(--lyrics-size, 26px) * 0.8); }
+  body.bg-imported .lyric-line.current { font-size: calc(var(--lyrics-size-current, 34px) * 0.8); }
   /* 歌名/歌手 → 左上角搜索框下方 + 缩小 */
   body.bg-imported .header { top: 14vh; max-width: 24vw; }
   body.bg-imported .main-title { font-size: 24px; letter-spacing: 2px; }
@@ -580,6 +586,23 @@
     transform: translate(-50%, -500%);
     opacity: 0;
     pointer-events: none;
+  }
+
+  /* ===== 搜索横向渠道栏（搜索后显示，切换自动刷新）===== */
+  .search-channels {
+    display: flex; gap: 8px; padding: 10px 16px 0;
+    flex-wrap: wrap;
+  }
+  .search-channels .ch-tab {
+    padding: 5px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7);
+    font-size: 12px; font-family: inherit; cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .search-channels .ch-tab:hover { background: rgba(255,255,255,0.14); color: #fff; }
+  .search-channels .ch-tab.active {
+    background: rgba(255,255,255,0.92); color: #111;
+    border-color: rgba(255,255,255,0.92); font-weight: 600;
   }
 
 </style>
@@ -608,13 +631,6 @@
       <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
     </svg>
   </span>
-  <select id="search-source">
-    <option value="netease">网易云</option>
-    <option value="tencent">QQ音乐</option>
-    <option value="kugou">酷狗</option>
-    <option value="gqb">歌曲宝</option>
-    <option value="gqh">全民K歌</option>
-  </select>
   <input type="text" id="search-input" placeholder="搜索歌曲，在线播放..." spellcheck="false">
   <span class="search-hint" id="search-hint">在线播放</span>
 </div>
@@ -721,16 +737,16 @@
 
 <!-- 更多菜单 -->
 <div class="more-menu" id="more-menu">
-  <div class="menu-item" id="menu-login-netease"><span>🔑 登录网易云</span></div>
-  <div class="menu-item" id="menu-login-qq"><span>🔑 登录QQ音乐</span></div>
+  <div class="menu-item" id="menu-login-netease"><span>登录网易云</span></div>
+  <div class="menu-item" id="menu-login-qq"><span>登录QQ音乐</span></div>
   <div class="menu-divider"></div>
   <div class="menu-item" id="menu-local"><span>选择音乐文件夹</span></div>
-  <div class="menu-item" id="menu-import">📥 <span>导入歌单</span></div>
-  <div class="menu-item" id="menu-playlists">📃 <span>我的歌单</span></div>
-  <div class="menu-item" id="menu-queue">🎵 <span>播放队列</span></div>
-  <div class="menu-item" id="menu-account">👤 <span>我的音乐</span></div>
+  <div class="menu-item" id="menu-import"><span>导入歌单</span></div>
+  <div class="menu-item" id="menu-playlists"><span>我的歌单</span></div>
+  <div class="menu-item" id="menu-queue"><span>播放队列</span></div>
+  <div class="menu-item" id="menu-account"><span>我的音乐</span></div>
   <div class="menu-divider"></div>
-  <div class="menu-item" id="menu-settings">⚙️ <span>设置</span></div>
+  <div class="menu-item" id="menu-settings"><span>设置</span></div>
 </div>
 
 <!-- 我的音乐面板（登录后功能） -->
@@ -755,6 +771,14 @@
     <span class="panel-title">在线搜索</span>
     <span class="panel-sub" id="search-status"></span>
     <button class="panel-close" data-close="search-panel">✕</button>
+  </div>
+  <!-- 横向渠道选择栏：搜索后显示，切换渠道自动刷新 -->
+  <div class="search-channels" id="search-channels">
+    <button class="ch-tab" data-server="netease">网易云</button>
+    <button class="ch-tab" data-server="tencent">QQ音乐</button>
+    <button class="ch-tab" data-server="kugou">酷狗</button>
+    <button class="ch-tab" data-server="gqb">歌曲宝</button>
+    <button class="ch-tab" data-server="gqh">全民K歌</button>
   </div>
   <div class="panel-body" id="search-results"></div>
   <div class="panel-footer">
@@ -829,6 +853,12 @@
         <span class="set-val" id="lyrics-size-val">36px</span>
       </div>
       <div class="set-row">
+        <label>字体</label>
+        <select id="set-lyrics-font">
+          <option value="">默认</option>
+        </select>
+      </div>
+      <div class="set-row">
         <label>扫光颜色</label>
         <input type="color" id="set-scan-color" value="#ffffff">
       </div>
@@ -840,22 +870,80 @@
       </div>
     </div>
     <div class="set-group">
+      <div class="set-title">桌面歌词</div>
+      <div class="set-row">
+        <label class="set-check"><input type="checkbox" id="set-dl-on"> 显示桌面歌词（置顶悬浮歌词窗口）</label>
+      </div>
+      <div class="set-row">
+        <label>行数</label>
+        <select id="set-dl-lines">
+          <option value="1">单行（仅当前句）</option>
+          <option value="2">双行（当前+下一句）</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <label>字体</label>
+        <select id="set-dl-font">
+          <option value="微软雅黑">微软雅黑（默认）</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <label>字号</label>
+        <input type="range" id="set-dl-size" min="24" max="72" step="2" value="36">
+        <span class="set-val" id="dl-size-val">36px</span>
+      </div>
+      <div class="set-row">
+        <label>已唱颜色</label>
+        <input type="color" id="set-dl-played" value="#ffffff">
+      </div>
+      <div class="set-row">
+        <label>未唱颜色</label>
+        <input type="color" id="set-dl-unplayed" value="#9a9aa8">
+      </div>
+      <div class="set-row">
+        <label>不透明度</label>
+        <input type="range" id="set-dl-opacity" min="30" max="100" step="5" value="100">
+        <span class="set-val" id="dl-opacity-val">100%</span>
+      </div>
+      <div class="set-row">
+        <label class="set-check"><input type="checkbox" id="set-dl-border"> 文字描边</label>
+      </div>
+      <div class="set-row">
+        <label class="set-check"><input type="checkbox" id="set-dl-taskbar" checked> 覆盖任务栏</label>
+      </div>
+      <div class="set-row">
+        <label class="set-check"><input type="checkbox" id="set-dl-bold"> 粗体</label>
+      </div>
+    </div>
+    <div class="set-group">
       <div class="set-title">幻灯片背景</div>
       <div class="set-row">
         <label>图片目录</label>
-        <button class="set-btn" id="btn-pick-slide" style="flex:0 0 auto;padding:7px 18px;">选择图片文件夹</button>
+        <button class="set-btn" id="btn-pick-slide" style="flex:0 0 auto;padding:7px 18px;">选择背景文件夹</button>
         <input type="file" id="slide-folder" webkitdirectory multiple style="display:none">
         <span class="panel-sub" id="slide-count"></span>
       </div>
       <div class="set-row">
         <label class="set-check"><input type="checkbox" id="set-slide-on" checked> 启用幻灯片背景</label>
       </div>
-      <div class="set-info">选中的图片会作为背景轮播（半透明氛围），未选时使用默认深色渐变</div>
+      <div class="set-info">支持图片与视频（mp4/webm/mov/avi/mkv），半透明氛围轮播；视频播完自动切换。未选择时使用默认深色渐变</div>
     </div>
     <div class="set-group">
       <div class="set-title">底部励志句</div>
       <div class="set-row">
         <label class="set-check"><input type="checkbox" id="set-quote-on" checked> 显示励志句子</label>
+      </div>
+    </div>
+    <div class="set-group">
+      <div class="set-title">常规</div>
+      <div class="set-row">
+        <label>下载目录</label>
+        <button class="set-btn" id="btn-pick-download" style="flex:0 0 auto;padding:7px 14px;">选择目录</button>
+        <span class="panel-sub" id="download-folder-name">未设置</span>
+      </div>
+      <div class="set-info">未设置时下载功能不可用（在线搜索/歌单下载需要）</div>
+      <div class="set-row">
+        <label class="set-check"><input type="checkbox" id="set-startup"> 开机自动启动</label>
       </div>
     </div>
     <div class="set-group">
