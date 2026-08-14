@@ -63,6 +63,24 @@
       </div>
     </div>
     <div class="login-menu-divider"></div>
+    <div class="login-menu-section">
+      <div class="login-menu-section-title">
+        <span class="login-logo login-logo-text" style="background:linear-gradient(135deg,#2de1fc,#13a8ff);color:#fff;">狗</span>
+        <span>酷狗音乐</span>
+        <span id="login-kugou-state" class="login-menu-state">未登录</span>
+      </div>
+      <div class="login-menu-item login-menu-channel-btn" id="login-kugou-login">登录（扫码，歌单/每日推荐）</div>
+      <div class="login-menu-item login-menu-channel-info" id="login-kugou-info" style="display:none">
+        <img id="kugoulogin-avatar" alt="" onerror="this.style.display='none'">
+        <span id="kugoulogin-nickname"></span>
+      </div>
+      <div id="login-kugou-actions" style="display:none">
+        <div class="login-menu-item" id="menu-kugoulogin-playlists">我的酷狗歌单</div>
+        <div class="login-menu-item" id="menu-kugoulogin-daily">每日推荐</div>
+        <div class="login-menu-item login-menu-danger" id="menu-kugoulogin-logout">退出登录</div>
+      </div>
+    </div>
+    <div class="login-menu-divider"></div>
     <div class="login-menu-item" id="menu-open-settings">打开设置</div>
   </div>
 </div>
@@ -140,18 +158,22 @@
       <div id="playlist-list-wrap"></div>
       <div id="netease-playlist-wrap" class="qqmusic-panel"></div>
       <div id="qqmusic-playlist-wrap" class="qqmusic-panel"></div>
+      <div id="kugou-playlist-wrap" class="qqmusic-panel"></div>
     </div>
     <div id="netease-subtab-daily" class="netease-subtab-content">
       <div class="netease-panel-header">
         <span class="netease-record-switch">
           <span class="record-type platform-type active" data-platform="netease">网易云</span>
           <span class="record-type platform-type" data-platform="qq">QQ音乐</span>
+          <span class="record-type platform-type" data-platform="kugou">酷狗</span>
         </span>
         <span id="netease-daily-status" class="netease-panel-status"></span>
       </div>
       <div id="netease-daily-list"></div>
       <div id="qqmusic-daily-status" class="netease-panel-status" style="display:none;"></div>
       <div id="qqmusic-daily-list" class="qqmusic-panel" style="display:none;"></div>
+      <div id="kugou-daily-status" class="netease-panel-status" style="display:none;"></div>
+      <div id="kugou-daily-list" class="qqmusic-panel" style="display:none;"></div>
     </div>
     <div id="netease-subtab-record" class="netease-subtab-content">
       <div class="netease-panel-header">

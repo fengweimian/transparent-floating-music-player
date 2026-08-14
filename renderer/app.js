@@ -129,6 +129,16 @@
   const menuQqloginPlaylists = $("#menu-qqlogin-playlists");
   const menuQqloginDaily = $("#menu-qqlogin-daily");
   const menuQqloginLogout = $("#menu-qqlogin-logout");
+  // 酷狗渠道（v3.4.x 新增，与新版模板共用主进程酷狗登录/歌单/每日推荐）
+  const loginKugouState = $("#login-kugou-state");
+  const loginKugouLogin = $("#login-kugou-login");
+  const loginKugouInfo = $("#login-kugou-info");
+  const kugouloginAvatar = $("#kugoulogin-avatar");
+  const kugouloginNickname = $("#kugoulogin-nickname");
+  const loginKugouActions = $("#login-kugou-actions");
+  const menuKugouloginPlaylists = $("#menu-kugoulogin-playlists");
+  const menuKugouloginDaily = $("#menu-kugoulogin-daily");
+  const menuKugouloginLogout = $("#menu-kugoulogin-logout");
   const menuOpenSettings = $("#menu-open-settings");
   const neteaseDailyStatus = $("#netease-daily-status");
   const neteaseDailyList = $("#netease-daily-list");
@@ -136,6 +146,9 @@
   const neteaseRecordList = $("#netease-record-list");
   const neteasePlaylistWrap = $("#netease-playlist-wrap");
   const qqmusicPlaylistWrap = $("#qqmusic-playlist-wrap");
+  const kugouPlaylistWrap = $("#kugou-playlist-wrap");
+  const kugouDailyStatus = $("#kugou-daily-status");
+  const kugouDailyList = $("#kugou-daily-list");
   const qqmusicDailyStatus = $("#qqmusic-daily-status");
   const qqmusicDailyList = $("#qqmusic-daily-list");
   // 登录状态缓存（合并徽标与面板展示用）
@@ -145,6 +158,10 @@
   let qqLoggedIn = false;
   let qqNickname = "";
   let qqAvatarUrl = "";
+  // 酷狗登录状态缓存
+  let kugouLoggedIn = false;
+  let kugouNickname = "";
+  let kugouAvatarUrl = "";
 
   // ========== Init ==========
 
@@ -1197,8 +1214,9 @@
   function setLoginMenuVisible(visible) {
     loginMenu.style.display = visible ? "block" : "none";
     if (visible) loginMenu.classList.add("show");
-    btnLoginEntry.classList.toggle("active", visible && !(neteaseLoggedIn || qqLoggedIn));
-    loginSummary.classList.toggle("active", visible && (neteaseLoggedIn || qqLoggedIn));
+    const anyLoggedIn = neteaseLoggedIn || qqLoggedIn || kugouLoggedIn;
+    btnLoginEntry.classList.toggle("active", visible && !anyLoggedIn);
+    loginSummary.classList.toggle("active", visible && anyLoggedIn);
   }
   function isLoginMenuVisible() {
     return loginMenu.style.display !== "none";
@@ -1206,7 +1224,7 @@
 
   // 合并徽标：顶部按钮区根据登录态展示（未登录=登录按钮；任一登录=头像叠加+昵称）
   function rebuildLoginSummary() {
-    const anyLoggedIn = neteaseLoggedIn || qqLoggedIn;
+    const anyLoggedIn = neteaseLoggedIn || qqLoggedIn || kugouLoggedIn;
     if (anyLoggedIn) {
       btnLoginEntry.style.display = "none";
       loginSummary.style.display = "flex";
@@ -1221,15 +1239,17 @@
         } else {
           const ph = document.createElement("div");
           ph.className = "login-avatar-placeholder";
-          ph.textContent = ch === "netease" ? "云" : "Q";
+          ph.textContent = ch === "netease" ? "云" : (ch === "qq" ? "Q" : "狗");
           loginAvatars.appendChild(ph);
         }
       };
       if (neteaseLoggedIn) addAvatar(neteaseAvatarUrl, "netease");
       if (qqLoggedIn) addAvatar(qqAvatarUrl, "qq");
+      if (kugouLoggedIn) addAvatar(kugouAvatarUrl, "kugou");
       const names = [];
       if (neteaseLoggedIn) names.push(neteaseNickname || "网易云");
       if (qqLoggedIn) names.push(qqNickname || "QQ");
+      if (kugouLoggedIn) names.push(kugouNickname || "酷狗");
       loginSummaryText.textContent = names.join(" · ") || "已登录";
     } else {
       loginSummary.style.display = "none";
@@ -1241,6 +1261,7 @@
     // 初始状态（登录状态走共享层 XFAccount，与新版模板同一份数据源）
     XFAccount.neteaseStatus().then((st) => updateLoginEntry(st));
     XFAccount.qqStatus().then((st) => updateQqloginEntry(st));
+    if (XFAccount.kugouStatus) XFAccount.kugouStatus().then((st) => updateKugouloginEntry(st));
 
     // 顶部按钮/徽标点击 → 开关面板
     btnLoginEntry.addEventListener("click", (e) => {
@@ -1261,14 +1282,10 @@
     window.addEventListener("blur", () => setLoginMenuVisible(false));
 
     // —— 网易云渠道 ——
-    // 登录 → 打开官方登录窗口（真实浏览器环境，绕开 8821 风控）
-    loginNeteaseLogin.addEventListener("click", async () => {
-      const r = await window.electronAPI.login.openWindow();
-      if (r && r.success) {
-        showToast("网易云登录", "已打开登录窗口，请扫码并点「授权登录」", "info");
-      } else {
-        showToast("打开登录窗口失败", "请重试", "error");
-      }
+    // 登录 → 内嵌扫码弹窗（后台隐藏窗口抓官方页 canvas 二维码，无需打开可见窗口）
+    loginNeteaseLogin.addEventListener("click", () => {
+      setLoginMenuVisible(false);
+      openNeteaseLoginWindow();
     });
     // 已登录：我的歌单 / 每日推荐 / 最近听过（跳转到搜索面板「我的歌单」tab）
     menuLoginPlaylists.addEventListener("click", () => { setLoginMenuVisible(false); openNeteaseTab("my"); });
@@ -1286,14 +1303,10 @@
     });
 
     // —— QQ音乐渠道 ——
-    // 登录 → 打开 QQ音乐网页版登录窗口
-    loginQqLogin.addEventListener("click", async () => {
-      const r = await window.electronAPI.qqmusic.login();
-      if (r && r.success) {
-        showToast("QQ音乐登录", "已打开登录窗口，请扫码/账号登录后关闭即可", "info");
-      } else {
-        showToast("打开登录窗口失败", "请重试", "error");
-      }
+    // 登录 → 内嵌扫码弹窗（ptlogin2 纯 HTTP，无需打开网页窗口）
+    loginQqLogin.addEventListener("click", () => {
+      setLoginMenuVisible(false);
+      openQqLoginWindow();
     });
     // 已登录：我的歌单 / 每日推荐
     menuQqloginPlaylists.addEventListener("click", () => { setLoginMenuVisible(false); openNeteaseTab("my"); });
@@ -1308,6 +1321,39 @@
       if (!confirmLogout) return;
       await window.electronAPI.qqmusic.logout();
     });
+
+    // —— 酷狗渠道 ——
+    // 登录 → 弹出扫码登录窗口（酷狗官方 qrcode 接口，base64 图直接显示，无风控）
+    loginKugouLogin.addEventListener("click", () => {
+      setLoginMenuVisible(false);
+      openKugouLoginWindow();
+    });
+    // 已登录：我的歌单 / 每日推荐
+    menuKugouloginPlaylists.addEventListener("click", () => { setLoginMenuVisible(false); openNeteaseTab("my"); loadKugouMyPlaylists(); });
+    menuKugouloginDaily.addEventListener("click", () => { setLoginMenuVisible(false); openNeteaseTab("daily"); switchDailyPlatform("kugou"); });
+    // 退出登录（带确认）
+    menuKugouloginLogout.addEventListener("click", async () => {
+      setLoginMenuVisible(false);
+      const confirmLogout = await window.electronAPI.dialog.confirm(
+        "确认退出酷狗登录？",
+        "退出后酷狗的歌单/每日推荐将不可用。"
+      );
+      if (!confirmLogout) return;
+      await window.electronAPI.kugou.logout();
+      updateKugouloginEntry({ loggedIn: false });
+    });
+
+    // 全局回调：酷狗登录状态变化（扫码窗口轮询成功后由 main.js 广播）
+    if (window.electronAPI.kugou && window.electronAPI.kugou.onLoginChanged) {
+      window.electronAPI.kugou.onLoginChanged((data) => {
+        if (data && data.loggedIn) {
+          showToast("✓ 酷狗登录成功", `欢迎 ${data.nickname || "酷狗用户"}`, "info");
+          updateKugouloginEntry(data);
+        } else {
+          updateKugouloginEntry({ loggedIn: false });
+        }
+      });
+    }
 
     // —— 面板底部：打开设置 ——
     menuOpenSettings.addEventListener("click", () => {
@@ -1369,6 +1415,29 @@
       qqloginAvatar.style.display = "";
     } else {
       qqloginAvatar.style.display = "none";
+    }
+    rebuildLoginSummary();
+  }
+
+  // 酷狗渠道状态（兼容主进程 {loggedIn,nickname,avatarUrl} 与 XFAccount {loggedIn,user:{nick,avatar}}）
+  function updateKugouloginEntry(data) {
+    if (!data) return;
+    const nickname = data.nickname || (data.user && data.user.nick) || "";
+    const avatarUrl = data.avatarUrl || (data.user && data.user.avatar) || "";
+    kugouLoggedIn = !!data.loggedIn;
+    kugouNickname = nickname;
+    kugouAvatarUrl = avatarUrl;
+    loginKugouState.textContent = data.loggedIn ? "已登录" : "未登录";
+    loginKugouState.classList.toggle("logged-in", !!data.loggedIn);
+    loginKugouLogin.style.display = data.loggedIn ? "none" : "";
+    loginKugouInfo.style.display = data.loggedIn ? "flex" : "none";
+    loginKugouActions.style.display = data.loggedIn ? "block" : "none";
+    kugouloginNickname.textContent = nickname || "酷狗用户";
+    if (avatarUrl) {
+      kugouloginAvatar.src = avatarUrl.replace(/^http:/, "https:");
+      kugouloginAvatar.style.display = "";
+    } else {
+      kugouloginAvatar.style.display = "none";
     }
     rebuildLoginSummary();
   }
@@ -1526,6 +1595,321 @@
     });
   }
 
+  // ========== 酷狗登录后功能（扫码窗口 / 我的歌单 / 每日推荐） ==========
+
+  // ========== 网易云内嵌扫码登录弹窗（v3.4.x，后台隐藏窗口抓官方页 canvas 二维码） ==========
+  let neQrModalListenerAttached = false;
+  function openNeteaseLoginWindow() {
+    const existing = document.getElementById("kugou-login-modal");
+    if (existing) existing.remove();
+    const modal = document.createElement("div");
+    modal.id = "kugou-login-modal";
+    modal.className = "kugou-login-modal";
+    modal.innerHTML = `
+      <div class="kugou-login-box">
+        <div class="kugou-login-head">
+          <span>网易云音乐 · 扫码登录</span>
+          <button class="kugou-login-close" id="kugou-login-close">✕</button>
+        </div>
+        <div class="kugou-login-body">
+          <div class="kugou-login-qr" id="kugou-login-qr"><div class="netease-panel-status">正在打开官方登录页...</div></div>
+          <div class="kugou-login-status" id="kugou-login-status">正在加载登录二维码...</div>
+          <button class="btn-action" id="kugou-login-refresh" style="margin:0 auto;display:block;">重新加载</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const qrBox = modal.querySelector("#kugou-login-qr");
+    const statusEl = modal.querySelector("#kugou-login-status");
+    const refreshBtn = modal.querySelector("#kugou-login-refresh");
+    const close = () => { modal.remove(); window.electronAPI.login.closeWindow(); };
+    modal.querySelector("#kugou-login-close").addEventListener("click", close);
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+
+    // 二维码事件（只注册一次，回调定位当前 modal）
+    if (!neQrModalListenerAttached) {
+      neQrModalListenerAttached = true;
+      window.electronAPI.login.onQrImage((qrDataUrl) => {
+        const m = document.getElementById("kugou-login-modal");
+        if (!m) return;
+        const qb = m.querySelector("#kugou-login-qr");
+        const st = m.querySelector("#kugou-login-status");
+        if (!qb) return;
+        qb.innerHTML = '<img src="' + qrDataUrl + '" alt="网易云登录二维码">';
+        st.textContent = "请使用网易云 App 扫码登录";
+      });
+    }
+    const openWindow = () => {
+      qrBox.innerHTML = '<div class="netease-panel-status">正在打开官方登录页...</div>';
+      statusEl.textContent = "正在加载登录二维码...";
+      window.electronAPI.login.openWindow();
+    };
+    refreshBtn.addEventListener("click", () => {
+      window.electronAPI.login.closeWindow();
+      setTimeout(openWindow, 300);
+    });
+    openWindow();
+  }
+
+  // ========== QQ音乐内嵌扫码登录弹窗（v3.4.x，ptlogin2 纯 HTTP） ==========
+  function openQqLoginWindow() {
+    const existing = document.getElementById("kugou-login-modal");
+    if (existing) existing.remove();
+    const modal = document.createElement("div");
+    modal.id = "kugou-login-modal";
+    modal.className = "kugou-login-modal";
+    modal.innerHTML = `
+      <div class="kugou-login-box">
+        <div class="kugou-login-head">
+          <span>QQ音乐 · 扫码登录</span>
+          <button class="kugou-login-close" id="kugou-login-close">✕</button>
+        </div>
+        <div class="kugou-login-body">
+          <div class="kugou-login-qr" id="kugou-login-qr"><div class="netease-panel-status">二维码加载中...</div></div>
+          <div class="kugou-login-status" id="kugou-login-status">正在生成二维码...</div>
+          <button class="btn-action" id="kugou-login-refresh" style="margin:0 auto;display:block;">刷新二维码</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const qrBox = modal.querySelector("#kugou-login-qr");
+    const statusEl = modal.querySelector("#kugou-login-status");
+    const refreshBtn = modal.querySelector("#kugou-login-refresh");
+    let timer = null;
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const close = () => { stop(); modal.remove(); };
+    modal.querySelector("#kugou-login-close").addEventListener("click", close);
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+
+    const startQr = async () => {
+      try {
+        const r = await window.electronAPI.qqmusic.qrKey();
+        if (!r || !r.success) {
+          qrBox.innerHTML = '<div class="netease-panel-status">二维码获取失败</div>';
+          statusEl.textContent = (r && r.message) || "获取失败";
+          return;
+        }
+        qrBox.innerHTML = '<img src="' + r.qrDataUrl + '" alt="QQ音乐登录二维码">';
+        statusEl.textContent = "请使用 QQ / 手机QQ 扫码登录";
+        stop();
+        timer = setInterval(async () => {
+          try {
+            const c = await window.electronAPI.qqmusic.qrCheck();
+            if (c.status === 0) {
+              stop();
+              statusEl.textContent = "登录成功！";
+              showToast("✓ QQ音乐登录成功", "正在同步歌单和每日推荐", "info");
+              const st = await XFAccount.qqStatus();
+              updateQqloginEntry(st);
+              setTimeout(close, 800);
+              return;
+            }
+            if (c.status === 67) { statusEl.textContent = "请在手机上确认登录"; return; }
+            if (c.status === 66) { statusEl.textContent = "等待扫码..."; return; }
+            if (c.status === 65) {
+              stop();
+              statusEl.textContent = "二维码已过期，正在刷新...";
+              startQr();
+              return;
+            }
+            if (c.status === 98 || c.status === 99) {
+              stop();
+              statusEl.textContent = c.message || "登录异常，请刷新重试";
+              return;
+            }
+            statusEl.textContent = c.message || "等待扫码...";
+          } catch (e) { /* 单次轮询失败忽略 */ }
+        }, 2000);
+      } catch (e) {
+        qrBox.innerHTML = '<div class="netease-panel-status">二维码获取失败</div>';
+        statusEl.textContent = e.message || "网络错误";
+      }
+    };
+    refreshBtn.addEventListener("click", () => { stop(); statusEl.textContent = "正在生成二维码..."; startQr(); });
+    startQr();
+  }
+
+  // 酷狗扫码登录窗口（modal：二维码 base64 直接显示 + 2s 轮询，与新版模板同链路）
+  function openKugouLoginWindow() {
+    const existing = document.getElementById("kugou-login-modal");
+    if (existing) existing.remove();
+    const modal = document.createElement("div");
+    modal.id = "kugou-login-modal";
+    modal.className = "kugou-login-modal";
+    modal.innerHTML = `
+      <div class="kugou-login-box">
+        <div class="kugou-login-head">
+          <span>酷狗音乐 · 扫码登录</span>
+          <button class="kugou-login-close" id="kugou-login-close">✕</button>
+        </div>
+        <div class="kugou-login-body">
+          <div class="kugou-login-qr" id="kugou-login-qr"><div class="netease-panel-status">二维码加载中...</div></div>
+          <div class="kugou-login-status" id="kugou-login-status">正在生成二维码...</div>
+          <button class="btn-action" id="kugou-login-refresh" style="margin:0 auto;display:block;">刷新二维码</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const qrBox = modal.querySelector("#kugou-login-qr");
+    const statusEl = modal.querySelector("#kugou-login-status");
+    const refreshBtn = modal.querySelector("#kugou-login-refresh");
+    let timer = null;
+    let key = "";
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const close = () => { stop(); modal.remove(); };
+    modal.querySelector("#kugou-login-close").addEventListener("click", close);
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+
+    const startQr = async () => {
+      try {
+        const r = await window.electronAPI.kugou.qrKey();
+        if (!r || !r.success) {
+          qrBox.innerHTML = '<div class="netease-panel-status">二维码获取失败</div>';
+          statusEl.textContent = (r && r.message) || "获取失败";
+          return;
+        }
+        key = r.key;
+        qrBox.innerHTML = '<img src="' + r.qrDataUrl + '" alt="酷狗登录二维码">';
+        statusEl.textContent = "请使用酷狗 App 扫码登录";
+        stop();
+        timer = setInterval(async () => {
+          try {
+            const c = await window.electronAPI.kugou.qrCheck(key);
+            if (c.status === 4) {
+              stop();
+              statusEl.textContent = "登录成功！";
+              showToast("✓ 酷狗登录成功", "正在同步歌单和每日推荐", "info");
+              const st = await XFAccount.kugouStatus();
+              updateKugouloginEntry(st);
+              setTimeout(close, 800);
+              return;
+            }
+            if (c.status === 2) { statusEl.textContent = "请在手机上确认登录"; return; }
+            if (c.status === 0) {
+              stop();
+              statusEl.textContent = "二维码已过期，正在刷新...";
+              startQr();
+              return;
+            }
+            statusEl.textContent = "等待扫码...";
+          } catch (e) { /* 单次轮询失败忽略 */ }
+        }, 2000);
+      } catch (e) {
+        qrBox.innerHTML = '<div class="netease-panel-status">二维码获取失败</div>';
+        statusEl.textContent = e.message || "网络错误";
+      }
+    };
+    refreshBtn.addEventListener("click", () => { stop(); statusEl.textContent = "正在生成二维码..."; startQr(); });
+    startQr();
+  }
+
+  // 把酷狗 API 歌曲数组转换成播放器轨道（kugou 源，id=hash）
+  function toKugouTracks(songs) {
+    return (songs || []).map((s) => ({
+      id: s.id || s.hash || s.url_id,
+      name: s.name || s.songname || "",
+      artist: s.artist || s.singername || "",
+      album: s.album || "",
+      pic: s.pic || "",
+      picId: s.picId || "",
+    }));
+  }
+
+  // 播放酷狗歌曲（追加到在线队列并播放第一首）
+  function playKugouSongs(songs) {
+    if (!songs || songs.length === 0) {
+      showToast("酷狗", "没有可播放的歌曲", "info");
+      return;
+    }
+    const tracks = toKugouTracks(songs);
+    const added = player.addOnlineSongs(tracks, "kugou");
+    if (added <= 0) {
+      showToast("酷狗", "歌曲已在播放队列中", "info");
+      return;
+    }
+    const startIdx = player.getPlaylist().length - added;
+    player.playOnlineTrack(startIdx);
+  }
+
+  // 我的酷狗歌单（kugouPlaylists 返回的歌单已内嵌歌曲，点击即播）
+  async function loadKugouMyPlaylists() {
+    if (!kugouLoggedIn) {
+      kugouPlaylistWrap.innerHTML = '<div class="netease-panel-status">未登录酷狗（登录后可用）</div>';
+      return;
+    }
+    kugouPlaylistWrap.innerHTML = '<div class="netease-panel-status">加载中...</div>';
+    try {
+      const pls = await XFAccount.kugouPlaylists();
+      let html = "";
+      if (pls.length > 0) {
+        html += `<div class="netease-pl-section-title">酷狗歌单（${pls.length}）</div>` +
+          `<div class="netease-pl-grid">` +
+          pls.map((p) => `
+            <div class="netease-pl-card" data-id="${p.id}">
+              <div class="netease-pl-card-name">${escapeHtml(p.name)}</div>
+              <div class="netease-pl-card-meta">${p.trackCount} 首</div>
+              <button class="btn-load" data-plid="${p.id}">播放</button>
+            </div>`).join("") + `</div>`;
+      }
+      kugouPlaylistWrap.innerHTML = html || emptyStateHTML("playlist", "暂无酷狗歌单", "在酷狗音乐 App 里创建歌单后，这里会自动同步");
+      // 歌单点击：直接播内嵌歌曲（kugouPlaylists 已带 songs）
+      kugouPlaylistWrap.querySelectorAll(".netease-pl-card .btn-load").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const p = pls.find((x) => String(x.id) === String(btn.dataset.plid));
+          if (p && p.songs && p.songs.length) playKugouSongs(p.songs);
+          else showToast("酷狗", "该歌单暂无歌曲", "info");
+        });
+      });
+    } catch (e) {
+      kugouPlaylistWrap.innerHTML = '<div class="netease-panel-status">加载失败：' + escapeHtml(e.message) + "</div>";
+    }
+  }
+
+  // 酷狗每日推荐
+  async function loadKugouDaily() {
+    if (!kugouLoggedIn) {
+      kugouDailyStatus.style.display = "";
+      kugouDailyStatus.textContent = "未登录酷狗（登录后可用每日推荐）";
+      kugouDailyList.style.display = "none";
+      kugouDailyList.innerHTML = "";
+      return;
+    }
+    kugouDailyStatus.style.display = "";
+    kugouDailyStatus.textContent = "加载中...";
+    try {
+      const daily = await XFAccount.kugouDaily();
+      const songs = daily.songs || [];
+      let html = "";
+      if (songs.length > 0) {
+        html += `<div class="netease-pl-section-title">今日推荐歌曲（${songs.length}）</div>` +
+          songs.map((s, i) => `
+            <div class="netease-song-row" data-idx="${i}" data-id="${s.id}">
+              <span class="netease-song-idx">${i + 1}</span>
+              <span class="netease-song-name">${escapeHtml(s.name)}</span>
+              <span class="netease-song-artist">${escapeHtml(s.artist)}</span>
+            </div>`).join("");
+      } else {
+        html += '<div class="netease-pl-section-title">今日推荐歌曲</div><div class="netease-panel-status">无数据</div>';
+      }
+      kugouDailyStatus.textContent = "";
+      kugouDailyStatus.style.display = "none";
+      kugouDailyList.style.display = "";
+      kugouDailyList.innerHTML = html || emptyStateHTML("music", "今日暂无推荐", "登录酷狗后每天都有专属推荐歌曲");
+      // 歌曲点击播放
+      kugouDailyList.querySelectorAll(".netease-song-row").forEach((row) => {
+        row.addEventListener("click", () => {
+          const idx = parseInt(row.dataset.idx, 10);
+          playKugouSongs(songs.slice(idx));
+        });
+      });
+    } catch (e) {
+      kugouDailyStatus.style.display = "";
+      kugouDailyStatus.textContent = "加载失败：" + e.message;
+      kugouDailyList.style.display = "none";
+    }
+  }
+
   // ========== 网易云登录后功能（我的歌单/每日推荐/最近听过） ==========
 
   // 每日推荐的平台选择（netease/qq），切换时只加载选中平台
@@ -1558,14 +1942,18 @@
     });
   }
 
-  // 每日推荐：切换平台显示
+  // 每日推荐：切换平台显示（网易云 / QQ音乐 / 酷狗）
   function switchDailyPlatform() {
     const showQq = dailyPlatform === "qq";
-    neteaseDailyStatus.style.display = showQq ? "none" : "";
-    neteaseDailyList.style.display = showQq ? "none" : "";
+    const showKg = dailyPlatform === "kugou";
+    neteaseDailyStatus.style.display = (showQq || showKg) ? "none" : "";
+    neteaseDailyList.style.display = (showQq || showKg) ? "none" : "";
     qqmusicDailyStatus.style.display = showQq ? "" : "none";
     qqmusicDailyList.style.display = showQq ? "" : "none";
-    if (showQq) loadQqmusicDaily();
+    kugouDailyStatus.style.display = showKg ? "" : "none";
+    kugouDailyList.style.display = showKg ? "" : "none";
+    if (showKg) loadKugouDaily();
+    else if (showQq) loadQqmusicDaily();
     else loadNeteaseDaily();
   }
 
@@ -1579,6 +1967,7 @@
     if (sub === "my") {
       loadNeteaseMyPlaylists();
       loadQqmusicMyPlaylists();
+      loadKugouMyPlaylists();
     } else if (sub === "daily") {
       switchDailyPlatform();
     } else if (sub === "record") {

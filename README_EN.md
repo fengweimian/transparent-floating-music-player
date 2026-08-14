@@ -36,21 +36,21 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 - **Karaoke-style word-by-word lyrics** (same as main window, smooth & continuous)
 
 ### 🔑 NetEase Login (optional)
-- Login entry at top-right (official login page QR, secure)
+- Login entry at top-right (**in-app embedded QR**: a hidden background window reads the official login page QR, no need to minimize the app)
 - **My playlists**: created & collected playlists (incl. "My Favorite" ❤), click to play
 - **Daily recommendation**: 30 daily songs + recommended playlists
 - **Listening history**: this-week / all-time toggle
 - **Scrobble**: songs played in this player (≥60s) are reported to NetEase, counted in "recently played" & daily recommendations
 
 ### 🎧 QQ Music Login (optional)
-- Separate login entry at top-right (opens QQ Music official login page, QR / account, secure)
+- Separate login entry at top-right (**in-app embedded QR scan**, official QQ ptlogin2 channel, secure)
 - **My playlists**: created & collected playlists merged (favorite ❤ on top), click to play
 - **Daily recommendation**: new songs + hot recommended playlists
 - Login state also shown in **Settings page** (view status / logout)
 - ⚠️ QQ Music login lasts ~1–3 days (QQ official limit); re-login when expired
 
 ### 🎧 Kugou Login (optional)
-- Separate login entry at top-right (in-app QR code scan, no risk-control, secure)
+- Separate login entry at top-right (**in-app embedded QR scan**, no risk-control, secure; supported in both classic & new templates)
 - **My playlists**: all my playlists (songs embedded, click to play)
 - **Daily recommendation**: recommended songs, click to play
 - **Kugou playback**: free songs play fully; paid/VIP songs get only a 60s preview anonymously (official limit)
@@ -78,7 +78,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- `XiaofengMusic-Setup-3.4.0.exe` — NSIS installer (recommended)
+- `XiaofengMusic-Setup-3.5.0.exe` — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 

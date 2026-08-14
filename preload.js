@@ -101,6 +101,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     onLoginChanged: (callback) => {
       ipcRenderer.on("netease-login-changed", (_event, data) => callback(data));
     },
+    // v3.4.x：隐藏登录窗口抓到的二维码 base64（主窗口面板显示）
+    onQrImage: (callback) => {
+      ipcRenderer.on("netease-qr-image", (_event, qrDataUrl) => callback(qrDataUrl));
+    },
   },
   netease: {
     // 登录后接口（②④⑤⑥⑪⑫）
@@ -122,6 +126,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     collectPlaylists: () => ipcRenderer.invoke("qqmusic:collect-playlists"),
     likedSongs: () => ipcRenderer.invoke("qqmusic:liked-songs"),
     daily: () => ipcRenderer.invoke("qqmusic:daily"),
+    // 内嵌扫码登录（v3.4.x 新增，ptlogin2 纯 HTTP 链路）
+    qrKey: () => ipcRenderer.invoke("qqmusic:qrKey"),
+    qrCheck: () => ipcRenderer.invoke("qqmusic:qrCheck"),
     onLoginChanged: (callback) => {
       ipcRenderer.on("qqmusic-login-changed", (_event, data) => callback(data));
     },

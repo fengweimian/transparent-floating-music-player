@@ -827,6 +827,11 @@
   function closeAllPanels() {
     document.querySelectorAll(".panel.open").forEach((p) => p.classList.remove("open"));
     stopKgQrPoll();   // 关闭面板时停止酷狗二维码轮询
+    stopQqQrPoll();   // 关闭面板时停止 QQ 二维码轮询
+    // 关闭面板时若网易云未登录 → 关闭隐藏登录窗口（避免后台残留）
+    if (window.electronAPI.login && window.electronAPI.login.closeWindow) {
+      window.electronAPI.login.closeWindow();
+    }
   }
   document.querySelectorAll(".panel-close").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -870,6 +875,10 @@
 
   document.querySelectorAll(".acct-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
+      // 离开网易云 tab → 关闭隐藏登录窗口（避免后台残留）
+      if (accountTab === "netease" && btn.dataset.atab !== "netease") {
+        window.electronAPI.login.closeWindow();
+      }
       accountTab = btn.dataset.atab;
       document.querySelectorAll(".acct-tab").forEach((b) => b.classList.toggle("active", b === btn));
       renderAccount();
@@ -953,7 +962,7 @@
       if (!st.loggedIn) {
         accountStatus.textContent = "未登录";
         accountContent.innerHTML = "";
-        accountContent.appendChild(loginTipHtml("网易云", () => window.electronAPI.settings.openWindow(true)));
+        renderNeteaseLogin();
         return;
       }
       accountStatus.textContent = st.profile ? st.profile.nickname : "已登录";
@@ -963,7 +972,7 @@
       if (!st.loggedIn) {
         accountStatus.textContent = "未登录";
         accountContent.innerHTML = "";
-        accountContent.appendChild(loginTipHtml("QQ音乐", () => window.electronAPI.qqmusic.login()));
+        renderQqLogin();
         return;
       }
       accountStatus.textContent = st.user ? st.user.nick : "已登录";
@@ -980,6 +989,115 @@
       accountStatus.textContent = st.user ? st.user.nick : "已登录";
       await renderKugouAccount(st.user);
     }
+  }
+
+  // ---- 网易云：内嵌二维码登录（v3.4.x，后台隐藏窗口抓官方页 canvas 二维码）----
+  let neQrListenerAttached = false;
+  let neQrWrap = null;   // 当前活动的二维码容器（切 tab 重建后回调仍能定位）
+  async function renderNeteaseLogin() {
+    const wrap = document.createElement("div");
+    wrap.className = "kg-qr-wrap";
+    wrap.innerHTML =
+      '<div class="kg-qr-img" id="ne-qr-img"><div class="empty-tip" style="padding:60px 0">正在打开官方登录页...</div></div>' +
+      '<div class="kg-qr-status" id="ne-qr-status">正在加载登录二维码...</div>' +
+      '<button class="kg-qr-refresh" id="ne-qr-refresh">重新加载</button>';
+    accountContent.appendChild(wrap);
+    neQrWrap = wrap;
+    const imgBox = wrap.querySelector("#ne-qr-img");
+    const statusEl = wrap.querySelector("#ne-qr-status");
+    const refreshBtn = wrap.querySelector("#ne-qr-refresh");
+
+    const openWindow = () => {
+      imgBox.innerHTML = '<div class="empty-tip" style="padding:60px 0">正在打开官方登录页...</div>';
+      statusEl.textContent = "正在加载登录二维码...";
+      window.electronAPI.login.openWindow();
+    };
+    refreshBtn.addEventListener("click", () => {
+      window.electronAPI.login.closeWindow();
+      setTimeout(openWindow, 300);
+    });
+    // 只注册一次二维码监听（回调通过 neQrWrap 定位当前容器）
+    if (!neQrListenerAttached) {
+      neQrListenerAttached = true;
+      window.electronAPI.login.onQrImage((qrDataUrl) => {
+        const w = neQrWrap;
+        if (!w || !document.body.contains(w)) return;
+        const ib = w.querySelector("#ne-qr-img");
+        const st = w.querySelector("#ne-qr-status");
+        if (!ib) return;
+        ib.innerHTML = '<img src="' + qrDataUrl + '" alt="网易云登录二维码">';
+        st.textContent = "请使用网易云 App 扫码登录";
+      });
+    }
+    openWindow();
+  }
+
+  // ---- QQ音乐：内嵌二维码登录（v3.4.x，ptlogin2 纯 HTTP，无窗口）----
+  let qqQrTimer = null;
+  function stopQqQrPoll() {
+    if (qqQrTimer) { clearInterval(qqQrTimer); qqQrTimer = null; }
+  }
+  async function renderQqLogin() {
+    stopQqQrPoll();
+    const wrap = document.createElement("div");
+    wrap.className = "kg-qr-wrap";
+    wrap.innerHTML =
+      '<div class="kg-qr-img" id="qq-qr-img"><div class="empty-tip" style="padding:60px 0">二维码加载中...</div></div>' +
+      '<div class="kg-qr-status" id="qq-qr-status">正在生成二维码...</div>' +
+      '<button class="kg-qr-refresh" id="qq-qr-refresh">刷新二维码</button>';
+    accountContent.appendChild(wrap);
+    const imgBox = wrap.querySelector("#qq-qr-img");
+    const statusEl = wrap.querySelector("#qq-qr-status");
+    const refreshBtn = wrap.querySelector("#qq-qr-refresh");
+    refreshBtn.addEventListener("click", () => {
+      stopQqQrPoll();
+      statusEl.textContent = "正在生成二维码...";
+      startQqQr();
+    });
+    const startQqQr = async () => {
+      try {
+        const r = await window.electronAPI.qqmusic.qrKey();
+        if (!r || !r.success) {
+          imgBox.innerHTML = '<div class="empty-tip" style="padding:60px 0">二维码获取失败</div>';
+          statusEl.textContent = (r && r.message) || "获取失败";
+          return;
+        }
+        imgBox.innerHTML = '<img src="' + r.qrDataUrl + '" alt="QQ音乐登录二维码">';
+        statusEl.textContent = "请使用 QQ / 手机QQ 扫码登录";
+        stopQqQrPoll();
+        qqQrTimer = setInterval(async () => {
+          try {
+            const c = await window.electronAPI.qqmusic.qrCheck();
+            if (c.status === 0) {
+              stopQqQrPoll();
+              statusEl.textContent = "登录成功！";
+              showFeedback("QQ音乐登录成功");
+              updateLoginEntry();
+              renderAccount();
+              return;
+            }
+            if (c.status === 67) { statusEl.textContent = "请在手机上确认登录"; return; }
+            if (c.status === 66) { statusEl.textContent = "等待扫码..."; return; }
+            if (c.status === 65) {
+              stopQqQrPoll();
+              statusEl.textContent = "二维码已过期，正在刷新...";
+              startQqQr();
+              return;
+            }
+            if (c.status === 98 || c.status === 99) {
+              stopQqQrPoll();
+              statusEl.textContent = c.message || "登录异常，请刷新重试";
+              return;
+            }
+            statusEl.textContent = c.message || "等待扫码...";
+          } catch (e) { /* 单次轮询失败忽略 */ }
+        }, 2000);
+      } catch (e) {
+        imgBox.innerHTML = '<div class="empty-tip" style="padding:60px 0">二维码获取失败</div>';
+        statusEl.textContent = e.message || "网络错误";
+      }
+    };
+    startQqQr();
   }
 
   // ---- 酷狗：二维码登录（生成 → 轮询 2s → status=4 成功）----
