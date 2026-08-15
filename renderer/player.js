@@ -21,6 +21,8 @@ class MusicPlayer {
     // 恢复进度（仅同一首歌时生效）
     this._restoreTime = 0;
     this._restoreTrackId = null;
+    // v3.5.2 自动续播：保存时是否在播放（切换模板后自动继续，不丢播放状态）
+    this._restorePlaying = false;
 
     this._loadState();
 
@@ -80,6 +82,8 @@ class MusicPlayer {
           this.currentTrack = s.playlist[s.currentIndex];
           this._restoreTime = s.currentTime || 0;
           this._restoreTrackId = String(s.playlist[s.currentIndex].id);
+          // v3.5.2：保存时在播放 → 恢复后自动续播
+          this._restorePlaying = !!s.playing;
         }
         if (s.mode) this.mode = s.mode;
         if (typeof s.volume === "number") this._volume = Math.max(0, Math.min(1, s.volume));
@@ -102,8 +106,19 @@ class MusicPlayer {
         currentTime: this.currentIndex >= 0 ? (this.audio.currentTime || 0) : 0,
         volume: this._volume,
         mode: this.mode,
+        // v3.5.2：记录是否在播放 → 切换模板后自动续播
+        playing: !this.audio.paused,
       }));
     } catch (e) {}
+  }
+
+  // v3.5.2 自动续播：切换模板（reload）后若保存时在播放 → 恢复当前歌并继续（_loadAndPlay 内部 _applyRestore 会 seek 到上次进度）
+  resumeIfNeeded() {
+    if (!this._restorePlaying) return;
+    this._restorePlaying = false;
+    if (this.currentIndex >= 0 && this.currentIndex < this.playlist.length && this.currentTrack) {
+      this._loadAndPlay(this.currentIndex);
+    }
   }
 
   // ========== Events ==========

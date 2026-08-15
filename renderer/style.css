@@ -1680,15 +1680,7 @@ html[data-theme="forest"] {
   object-fit: contain;
   flex-shrink: 0;
 }
-/* 酷狗登录分区：无官方图标，用文字徽标代替 */
-.login-logo-text {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-}
+/* 酷狗登录分区：使用官方图标 kugou-logo.png（详见 index.html），此处不再用文字徽标 */
 #btn-login-entry {
   display: flex;
   align-items: center;

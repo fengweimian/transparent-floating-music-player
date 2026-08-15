@@ -27,12 +27,14 @@
       if (tags.length === 0) continue;
       let content = raw.replace(re, "").trim();
       if (!content) continue;
-      // 翻译拆分：行尾 (翻译)，且括号前是外文（英/日/韩等）才拆
+      // 翻译拆分：行尾 (翻译)，且括号前是外文才拆
+      // ⚠️ v3.5.2：语言范围从"英/日/韩"扩展为"任何非中文书写字符"（俄/阿/泰/西里尔等），
+      //    中文歌词的"（合唱）（伴奏）"等说明括号仍不会误拆（括号前为纯中文/数字/标点）
       let trans = "";
       const m2 = content.match(/[（(]([^（）()]*)[）)]\s*$/);
       if (m2) {
         const before = content.slice(0, m2.index).trim();
-        const hasForeign = /[A-Za-z\u3040-\u30ff\uac00-\ud7af]/.test(before);
+        const hasForeign = /[^\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\d\s]/.test(before);
         if (hasForeign && before) { content = before; trans = m2[1].trim(); }
       }
       for (const t of tags) lines.push({ time: t, text: content, trans });
@@ -54,7 +56,9 @@
       const re = /([^()]+)\((\d+),(\d+)\)/g;
       let mm;
       while ((mm = re.exec(body)) !== null) {
-        const text = mm[1].trim();
+        // ⚠️ v3.5.2：保留空格字（QRC 中空格也带时间戳，trim 后为空不应丢弃——否则英文歌词连写）
+        const rawText = mm[1];
+        const text = rawText.trim() || (rawText ? " " : "");
         const offset = parseInt(mm[2], 10);
         const dur = parseInt(mm[3], 10);
         if (!text) continue;
@@ -96,19 +100,29 @@
 
   function parseYrcChars(body) {
     const chars = [];
-    // 主格式（网易云 API）：(cursor,dur,unused)text —— 时间戳在文本前面
-    let re = /\((\d+),(\d+)(?:,\d+)?\)([^()]*)/g;
-    let mm;
-    while ((mm = re.exec(body)) !== null) {
-      const text = (mm[3] || "").trim();
-      if (!text) continue;
-      chars.push({ text, start: parseInt(mm[1], 10) / 1000, dur: parseInt(mm[2], 10) / 1000 });
-    }
-    // 备选格式（部分渠道）：text(cursor,dur,unused)
-    if (chars.length === 0) {
-      re = /([^()]+)\((\d+),(\d+)(?:,\d+)?\)/g;
-      while ((mm = re.exec(body)) !== null) {
-        const text = mm[1].trim();
+    const b = String(body || "").trim();
+    if (!b) return chars;
+    // ⚠️ v3.5.2：按格式判断而非匹配结果判断——
+    //    以 ( 开头 → (cursor,dur)text 主格式；否则 → text(cursor,dur) 备选格式。
+    //    旧逻辑"主格式匹配 0 个才用备选"会在混合数据上漏掉首字（如 H(2000,100)e... 丢 H）
+    if (b.startsWith("(")) {
+      // 主格式（网易云 API）：(cursor,dur,unused)text —— 时间戳在文本前面
+      const re = /\((\d+),(\d+)(?:,\d+)?\)([^()]*)/g;
+      let mm;
+      while ((mm = re.exec(b)) !== null) {
+        // ⚠️ v3.5.2：保留空格字（YRC 中空格带时间戳，trim 后为空不应丢弃）
+        const rawText = mm[3] || "";
+        const text = rawText.trim() || (rawText ? " " : "");
+        if (!text) continue;
+        chars.push({ text, start: parseInt(mm[1], 10) / 1000, dur: parseInt(mm[2], 10) / 1000 });
+      }
+    } else {
+      // 备选格式（部分渠道）：text(cursor,dur,unused)
+      const re = /([^()]+)\((\d+),(\d+)(?:,\d+)?\)/g;
+      let mm;
+      while ((mm = re.exec(b)) !== null) {
+        const rawText = mm[1];
+        const text = rawText.trim() || (rawText ? " " : "");
         if (!text) continue;
         chars.push({ text, start: parseInt(mm[2], 10) / 1000, dur: parseInt(mm[3], 10) / 1000 });
       }

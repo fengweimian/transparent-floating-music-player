@@ -129,7 +129,9 @@
       const r = await window.electronAPI.qqmusic.daily();
       return {
         songs: (r.code === 200 && r.songs) ? mapQqSongs({ songs: r.songs }) : [],
-        playlists: (r.code === 200 && r.playlists) ? r.playlists.map((p) => ({ id: p.id, name: p.name, trackCount: p.songnum || 0, pic: p.picUrl || "" })) : [],
+        // ⚠️ v3.5.2 修复：主进程返回字段是 trackCount（get_hot_recommend 补数实测 511）+ cover，
+        //    之前读 p.songnum/p.picUrl（不存在）→ 歌单恒 0 首 + 无封面（与 v3.4.0 修的 QQ 歌单同病，漏了这里）
+        playlists: (r.code === 200 && r.playlists) ? r.playlists.map((p) => ({ id: p.id, name: p.name, trackCount: p.trackCount || 0, pic: p.cover || p.picUrl || "" })) : [],
       };
     } catch (e) { return { songs: [], playlists: [] }; }
   }

@@ -223,6 +223,8 @@
         currentTime: currentIdx >= 0 ? (audio.currentTime || 0) : 0,
         volume: audio.volume !== undefined ? audio.volume : 0.8,
         mode: MODE_TO_CLASSIC[modeOrder[modeIdx]] || "sequential",
+        // v3.5.2：记录是否在播放 → 切换模板后自动续播
+        playing: playing,
       }));
     } catch (e) {}
   }
@@ -284,7 +286,42 @@
         timeCurrent.textContent = fmtTime(_restoreTime);
         timeTotal.textContent = fmtTime(d);
       }
+      // v3.5.2 自动续播：保存时正在播放 → 恢复后自动继续（桌面版已放宽 autoplay 策略）
+      //    online 歌 url 为空 → 先拉播放地址再播；local 歌 restore 已设 src（applyT 处理 seek）
+      if (s.playing && song) {
+        const resume = () => {
+          initSpectrum();
+          if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+          if (song.type === "online" && !song.url && song.id && song.server) {
+            XFApi.url(song.id, song.server).then((u) => {
+              if (u) {
+                song.url = u;
+                if (curSong() === song) { startPlay(song); applyRestoreSeek(); }
+              }
+            }).catch(() => {});
+          } else if (song.url) {
+            startPlay(song);
+            if (song.type === "online") applyRestoreSeek(); // local 由上面 applyT 处理 seek
+          }
+          if (song.type === "online" && (song.lrcUrl || (song.id && song.server))) fetchOnlineLrc(song);
+          scheduleSaveState();
+        };
+        resume();
+      }
     }
+  }
+
+  // v3.5.2：自动续播用——把 _restoreTime 应用到 audio（online 歌 startPlay 后调用）
+  function applyRestoreSeek() {
+    const t = _restoreTime;
+    if (!(t > 0)) return;
+    _restoreTime = 0;
+    const doSeek = () => {
+      try { audio.currentTime = Math.min(t, audio.duration || 0); } catch (e) {}
+      audio.removeEventListener("loadedmetadata", doSeek);
+    };
+    if (audio.readyState >= 1 && audio.duration) doSeek();
+    else audio.addEventListener("loadedmetadata", doSeek);
   }
 
   // 模式图标显示（切换/恢复时调用）

@@ -244,6 +244,9 @@
 
     startLyricsUpdater();
 
+    // v3.5.2 自动续播：切换模板（reload）后若保存时在播放 → 恢复当前歌并继续
+    player.resumeIfNeeded();
+
     // 启动自检：检测已保存的网易云/QQ 登录态是否过期（延迟 3s，不阻塞启动）
     // ⚠️ 只在「本地保存了登录态但已失效」时提示，未登录/网络错误静默跳过
     setTimeout(async () => {
