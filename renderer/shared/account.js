@@ -143,7 +143,10 @@
       id: String(s.id || s.songmid || s.mid || ""),
       server: "qq",
       name: s.name || s.title || "",
-      artist: Array.isArray(s.singer) ? s.singer.map((x) => x.name).join(" / ") : (s.artist || ""),
+      // ⚠️ v3.5.2 修复：主进程歌单/每日推荐/红心输出的 singer 是**已 join 的字符串**
+      //    （如 "Alan Walker / Sabrina Carpenter"），不是数组——之前兜底只读 s.artist（搜索字段），
+      //    导致 QQ 每日推荐/红心歌单列表歌手空白；搜索的 artist 字符串仍走 s.artist 兜底
+      artist: Array.isArray(s.singer) ? s.singer.map((x) => x.name).join(" / ") : (s.singer || s.artist || ""),
       album: (s.album && s.album.name) || s.albumName || (typeof s.album === "string" ? s.album : "") || "",
       // ⚠️ 主进程返回字段是 pic（playlistDetail 已用 album.mid 构造完整封面 URL）；picUrl 仅 Meting/兼容
       pic: s.pic || s.picUrl || (s.album && s.album.mid ? "https://y.gtimg.cn/music/photo_new/T002R300x300M000" + s.album.mid + ".jpg" : ""),
