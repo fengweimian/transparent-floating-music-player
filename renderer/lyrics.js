@@ -6,6 +6,9 @@ class Lyrics {
     this.musicFolder = "";
     this.hasLyrics = false;
     this.showTranslation = false;
+    // ⚠️ v3.5.5：必须初始化！缺失时 ++undefined=NaN，seq 恒 NaN，NaN!==NaN 恒真 →
+    //    loadForTrack 每次都被竞态检查 return，歌词永远不加载（v3.5.4 引入的严重回归：旧模板在线歌词全部空白）
+    this._loadSeq = 0;
 
     this.container = container || document.getElementById("lyrics");
     this.content = content || document.getElementById("lyrics-content");

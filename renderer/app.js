@@ -639,6 +639,9 @@
     }
   }
 
+  // ⚠️ v3.5.5：搜索结果"新建并加入"的待加入歌曲（confirmNewPlaylist 创建时写入新歌单）
+  let pendingAddSong = null;
+
   async function showAddToPlaylistMenu(btn, songIdx) {
     let menu = document.getElementById("playlist-dropdown-menu");
     if (menu) { menu.remove(); return; }
@@ -653,11 +656,13 @@
     menu.style.top = (rect.bottom + 4) + "px";
     menu.style.left = (rect.left) + "px";
 
+    // ⚠️ v3.5.5：排除"本地音乐"（source=local 是 musicFolder 动态扫描歌单，不可写）；
+    //    空态/底部提供"新建歌单并加入"入口——修复"搜索到的音乐无法导入歌单"（用户只有本地音乐歌单时原菜单显示"暂无歌单"）
     const pls = myPlaylists.filter((pl) => pl.source !== "local");
     // 主进程 playlists 数组不含"本地音乐"，local 存在时真实下标需 +1
     const offset = getPlaylistOffset();
     if (pls.length === 0) {
-      menu.innerHTML = '<div class="dropdown-item empty">暂无歌单，请先创建或导入</div>';
+      menu.innerHTML = '<div class="dropdown-item empty">暂无自定义歌单（"本地音乐"为文件夹歌单，不可添加）</div>';
     } else {
       menu.innerHTML = pls.map((pl, pi) => {
         const realIdx = pi + offset;
@@ -677,6 +682,17 @@
         });
       });
     }
+    // 底部"新建歌单并加入"入口（空态时也提供）
+    const newBtn = document.createElement("div");
+    newBtn.className = "dropdown-item new-playlist";
+    newBtn.textContent = "＋ 新建歌单并加入";
+    newBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      pendingAddSong = song;
+      menu.remove();
+      openNewPlaylistDialog();
+    });
+    menu.appendChild(newBtn);
     document.body.appendChild(menu);
     menu.addEventListener("click", (e) => { e.stopPropagation(); });
     document.addEventListener("click", function close() { menu.remove(); document.removeEventListener("click", close); }, { once: true });
@@ -934,10 +950,16 @@
   async function confirmNewPlaylist() {
     const name = newPlaylistName.value.trim();
     if (!name) return;
-    await XFStore.addPlaylist(name, []);
+    // ⚠️ v3.5.5：从搜索结果"新建并加入"时，把待加入歌曲一并写入新歌单
+    const list = await XFStore.addPlaylist(name, pendingAddSong ? [pendingAddSong] : []);
+    pendingAddSong = null;
     closeNewPlaylistDialog();
     await loadPlaylists();
-    playlistStatus.textContent = `已创建 "${name}"`;
+    if (list && list.songs && list.songs.length > 0) {
+      playlistStatus.textContent = `已创建 "${name}" 并加入歌曲`;
+    } else {
+      playlistStatus.textContent = `已创建 "${name}"`;
+    }
   }
 
   // ========== Rename Playlist ==========

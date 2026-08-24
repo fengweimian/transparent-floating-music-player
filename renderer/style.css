@@ -1067,7 +1067,8 @@ html[data-theme="forest"] {
   display: none;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   padding: 4px 8px;
-  max-height: 240px;
+  /* ⚠️ v3.5.5：240px → 42vh——本地音乐歌单歌曲多时原高度太小，展开后看不到几首 */
+  max-height: 42vh;
   overflow-y: auto;
 }
 
