@@ -90,8 +90,9 @@
 <div id="slideshow">
   <img id="slide-back" class="slide-img" src="" alt="" onerror="this.style.opacity='0'">
   <img id="slide-front" class="slide-img" src="" alt="" onerror="this.style.opacity='0'">
-  <video id="slide-video-back" class="slide-video" src="" muted loop playsinline></video>
-  <video id="slide-video-front" class="slide-video" src="" muted loop playsinline></video>
+  <!-- ⚠️ v3.5.4：去掉 loop——slideshow.js 依赖 ended 事件切下一张；有 loop 视频永不 ended，长视频被 30s 兜底强行切走 -->
+  <video id="slide-video-back" class="slide-video" src="" muted playsinline></video>
+  <video id="slide-video-front" class="slide-video" src="" muted playsinline></video>
   <div id="slide-overlay"></div>
 </div>
 

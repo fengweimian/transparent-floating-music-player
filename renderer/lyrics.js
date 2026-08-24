@@ -21,6 +21,8 @@ class Lyrics {
   }
 
   async loadForTrack(track) {
+    // ⚠️ v3.5.4：请求序号竞态防护——快速切歌时，过期响应直接丢弃（A 的歌词晚于 B 返回不再覆盖 B）
+    const seq = ++this._loadSeq;
     this.lines = [];
     this.tlines = [];
     this.currentIdx = -1;
@@ -35,6 +37,7 @@ class Lyrics {
 
     if (track.type === "online") {
       const result = await XFApi.lyric(track.id, track.server);
+      if (seq !== this._loadSeq) return; // 已被更新的切歌请求取代
       if (result && result.lyric) {
         raw = result.lyric;
         traw = result.tlyric || "";
@@ -47,6 +50,7 @@ class Lyrics {
       const baseName = track.name.replace(/\.[^.]+$/, "");
       const lrcPath = await window.electronAPI.path.join(this.musicFolder, baseName + ".lrc");
       raw = await window.electronAPI.fs.readFile(lrcPath);
+      if (seq !== this._loadSeq) return;
     }
 
     if (!raw) {
@@ -84,23 +88,24 @@ class Lyrics {
     this.lines = linesMs.map(toSeconds);
     this.tlines = traw ? XFLyrics.parseLrc(traw).map((l) => ({ time: l.time / 1000, text: l.text })) : [];
     // 逐字歌词：自动识别 QQ 音乐 QRC（[ms,ms]字(偏移,时长)） vs 网易云 YRC
+    // ⚠️ v3.5.4：parseCharLines 按格式识别（isYrcFormat）——parseQrc 对 YRC 主格式会错位解析，
+    //    不能靠"parseQrc 返回空"回退判断格式
     if (yrc) {
-      // 先试 QRC（QQ 音乐，字在括号前，自包含行信息 → 直接替换 this.lines，无需 LRC 匹配）
-      let lyricLines = XFLyrics.parseQrc(yrc);
+      const lyricLines = XFLyrics.parseCharLines(yrc);
       if (lyricLines.length > 0) {
-        this.lines = lyricLines.map((l) => ({
-          time: l.start,
-          text: l.chars.map((c) => c.text).join(""),
-          chars: l.chars,
-        }));
-      } else {
-        // 再试 YRC（网易云，时间戳在前），需要与 LRC 行匹配挂载（在毫秒 lines 上执行）
-        lyricLines = XFLyrics.parseYrc(yrc);
-        if (lyricLines.length > 0) {
+        if (XFLyrics.isYrcFormat(yrc)) {
+          // YRC（网易云，时间戳在前）：需与 LRC 行匹配挂载（在毫秒 lines 上执行）
           XFLyrics.attachChars(linesMs, lyricLines);
           this.lines = linesMs.map((l) => ({
             time: l.time / 1000,
             text: l.trans ? l.text + "(" + l.trans + ")" : l.text,
+            chars: l.chars,
+          }));
+        } else {
+          // QRC（QQ 音乐，字在括号前，自包含行信息）→ 直接替换 this.lines，无需 LRC 匹配
+          this.lines = lyricLines.map((l) => ({
+            time: l.start,
+            text: l.chars.map((c) => c.text).join(""),
             chars: l.chars,
           }));
         }

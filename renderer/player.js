@@ -224,9 +224,10 @@ class MusicPlayer {
         // 队列被移除到空 → 通知 UI 清空歌词/歌名/封面
         this._emit("trackchange", null);
       } else if (index >= this.playlist.length) {
-        this._loadTrack(0);
+        // ⚠️ v3.5.4：删除的是最后一首 → 从头加载并**继续播放**（原来 _loadTrack 只加载不播放，界面切歌但静音）
+        this._loadAndPlay(0);
       } else {
-        this._loadTrack(index);
+        this._loadAndPlay(index);
       }
     } else if (index < this.currentIndex) {
       this.currentIndex--;
@@ -389,7 +390,9 @@ class MusicPlayer {
     if (this.playlist.length === 0) return;
     let idx;
     if (this.mode === "random") {
+      // ⚠️ v3.5.4：重采样避免原地重播当前歌（列表 >1 时保证换歌）
       idx = Math.floor(Math.random() * this.playlist.length);
+      while (idx === this.currentIndex && this.playlist.length > 1) idx = Math.floor(Math.random() * this.playlist.length);
     } else if (this.mode === "single") {
       idx = this.currentIndex;
     } else {
@@ -406,7 +409,9 @@ class MusicPlayer {
     }
     let idx;
     if (this.mode === "random") {
+      // ⚠️ v3.5.4：同上，重采样避免原地重播
       idx = Math.floor(Math.random() * this.playlist.length);
+      while (idx === this.currentIndex && this.playlist.length > 1) idx = Math.floor(Math.random() * this.playlist.length);
     } else {
       idx = (this.currentIndex - 1 + this.playlist.length) % this.playlist.length;
     }

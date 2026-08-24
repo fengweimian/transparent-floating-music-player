@@ -38,7 +38,7 @@
     if (!isElectron) return null;
     try {
       const r = await window.electronAPI.netease.userPlaylists();
-      if (r.code !== 200 || !r.playlists) return [];
+      if (!r || r.code !== 200 || !r.playlists) return [];
       return r.playlists
         .slice()
         .sort((a, b) => (b.specialType === 5 ? 1 : 0) - (a.specialType === 5 ? 1 : 0))
@@ -64,8 +64,8 @@
         window.electronAPI.netease.dailyPlaylists(),
       ]);
       return {
-        songs: (songsR.code === 200 && songsR.songs) ? mapNeteaseSongs({ songs: songsR.songs }) : [],
-        playlists: (plsR.code === 200 && plsR.playlists) ? plsR.playlists.map((p) => ({ id: p.id, name: p.name, trackCount: p.trackCount || 0, pic: (p.coverImgUrl || p.picUrl) || "" })) : [],
+        songs: (songsR && songsR.code === 200 && songsR.songs) ? mapNeteaseSongs({ songs: songsR.songs }) : [],
+        playlists: (plsR && plsR.code === 200 && plsR.playlists) ? plsR.playlists.map((p) => ({ id: p.id, name: p.name, trackCount: p.trackCount || 0, pic: (p.coverImgUrl || p.picUrl || p.cover) || "" })) : [],
       };
     } catch (e) { return { songs: [], playlists: [] }; }
   }
@@ -100,7 +100,7 @@
     if (!isElectron) return null;
     try {
       const r = await window.electronAPI.qqmusic.userPlaylists();
-      if (r.code !== 200 || !r.playlists) return [];
+      if (!r || r.code !== 200 || !r.playlists) return [];
       // ⚠️ 主进程 map 输出字段是 trackCount（song_cnt 转换而来），前端直接读它
       return r.playlists.map((p) => ({ id: p.id || p.tid || p.dirid, name: p.name || p.dirname || "", trackCount: p.trackCount || 0, creator: "", cover: p.cover || "" }));
     } catch (e) { return []; }
@@ -110,7 +110,7 @@
     if (!isElectron) return null;
     try {
       const r = await window.electronAPI.qqmusic.collectPlaylists();
-      if (r.code !== 200 || !r.playlists) return [];
+      if (!r || r.code !== 200 || !r.playlists) return [];
       return r.playlists.map((p) => ({ id: p.id || p.tid || p.dirid, name: p.name || p.dirname || "", trackCount: p.trackCount || 0, creator: "", cover: p.cover || "" }));
     } catch (e) { return []; }
   }
@@ -128,10 +128,10 @@
     try {
       const r = await window.electronAPI.qqmusic.daily();
       return {
-        songs: (r.code === 200 && r.songs) ? mapQqSongs({ songs: r.songs }) : [],
+        songs: (r && r.code === 200 && r.songs) ? mapQqSongs({ songs: r.songs }) : [],
         // ⚠️ v3.5.2 修复：主进程返回字段是 trackCount（get_hot_recommend 补数实测 511）+ cover，
         //    之前读 p.songnum/p.picUrl（不存在）→ 歌单恒 0 首 + 无封面（与 v3.4.0 修的 QQ 歌单同病，漏了这里）
-        playlists: (r.code === 200 && r.playlists) ? r.playlists.map((p) => ({ id: p.id, name: p.name, trackCount: p.trackCount || 0, pic: p.cover || p.picUrl || "" })) : [],
+        playlists: (r && r.code === 200 && r.playlists) ? r.playlists.map((p) => ({ id: p.id, name: p.name, trackCount: p.trackCount || 0, pic: p.cover || p.picUrl || "" })) : [],
       };
     } catch (e) { return { songs: [], playlists: [] }; }
   }
@@ -172,7 +172,7 @@
     if (!isElectron) return null;
     try {
       const r = await window.electronAPI.kugou.userPlaylists();
-      if (r.code !== 200 || !r.playlists) return [];
+      if (!r || r.code !== 200 || !r.playlists) return [];
       // 歌单带内嵌歌曲（get_all_list 直接返回 musiclist）
       return r.playlists.map((p) => ({
         id: p.id,
@@ -189,7 +189,7 @@
     try {
       const r = await window.electronAPI.kugou.daily();
       return {
-        songs: (r.code === 200 && r.songs) ? r.songs : [],
+        songs: (r && r.code === 200 && r.songs) ? r.songs : [],
         playlists: [],
       };
     } catch (e) { return { songs: [], playlists: [] }; }

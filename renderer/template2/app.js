@@ -913,7 +913,8 @@
   document.querySelectorAll(".acct-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       // 离开网易云 tab → 关闭隐藏登录窗口（避免后台残留）
-      if (accountTab === "netease" && btn.dataset.atab !== "netease") {
+      // ⚠️ v3.5.4：浏览器预览无 electronAPI → 需空值守卫（否则切 tab 脚本中断）
+      if (accountTab === "netease" && btn.dataset.atab !== "netease" && window.electronAPI && window.electronAPI.login) {
         window.electronAPI.login.closeWindow();
       }
       accountTab = btn.dataset.atab;
@@ -987,7 +988,11 @@
       '<span class="acct-user-name">' + escapeHtml(name) + '</span></div>';
   }
 
+  // ⚠️ v3.5.4：渲染请求序号——快速切 tab 时丢弃过期渲染（防慢请求覆盖新面板内容）
+  let _accountRenderSeq = 0;
   async function renderAccount() {
+    const seq = ++_accountRenderSeq;
+    const tab = accountTab;
     accountContent.innerHTML = '<div class="empty-tip">加载中...</div>';
     accountStatus.textContent = "";
     if (!XFAccount.isElectron) {
@@ -996,6 +1001,7 @@
     }
     if (accountTab === "netease") {
       const st = await XFAccount.neteaseStatus();
+      if (seq !== _accountRenderSeq) return;
       if (!st.loggedIn) {
         accountStatus.textContent = "未登录";
         accountContent.innerHTML = "";
@@ -1004,8 +1010,10 @@
       }
       accountStatus.textContent = st.profile ? st.profile.nickname : "已登录";
       await renderNeteaseAccount(st.profile);
+      if (seq !== _accountRenderSeq) return;
     } else if (accountTab === "qq") {
       const st = await XFAccount.qqStatus();
+      if (seq !== _accountRenderSeq) return;
       if (!st.loggedIn) {
         accountStatus.textContent = "未登录";
         accountContent.innerHTML = "";
@@ -1014,9 +1022,11 @@
       }
       accountStatus.textContent = st.user ? st.user.nick : "已登录";
       await renderQqAccount(st.user);
+      if (seq !== _accountRenderSeq) return;
     } else {
       // 酷狗：二维码扫码登录（无风控，二维码 base64 直接显示）
       const st = await XFAccount.kugouStatus();
+      if (seq !== _accountRenderSeq) return;
       if (!st.loggedIn) {
         accountStatus.textContent = "未登录";
         accountContent.innerHTML = "";
@@ -1025,6 +1035,7 @@
       }
       accountStatus.textContent = st.user ? st.user.nick : "已登录";
       await renderKugouAccount(st.user);
+      if (seq !== _accountRenderSeq) return;
     }
   }
 
@@ -1103,6 +1114,8 @@
         statusEl.textContent = "请使用 QQ / 手机QQ 扫码登录";
         stopQqQrPoll();
         qqQrTimer = setInterval(async () => {
+          // ⚠️ v3.5.4：面板已关闭 → 停止轮询（防 timer 泄漏：关面板后 qrKey await 期间仍 setInterval 持续请求）
+          if (!document.body.contains(wrap)) { stopQqQrPoll(); return; }
           try {
             const c = await window.electronAPI.qqmusic.qrCheck();
             if (c.status === 0) {
@@ -1175,6 +1188,8 @@
         // 轮询（2s）
         stopKgQrPoll();
         kgQrTimer = setInterval(async () => {
+          // ⚠️ v3.5.4：面板已关闭 → 停止轮询（防 timer 泄漏）
+          if (!document.body.contains(wrap)) { stopKgQrPoll(); return; }
           try {
             const c = await window.electronAPI.kugou.qrCheck(kgQrKey);
             if (c.status === 4) {
@@ -1782,12 +1797,16 @@
     });
   }
 
+  // ⚠️ v3.5.4：搜索请求序号——快速切渠道/改关键词时丢弃过期响应（旧结果不覆盖新结果）
+  let _searchSeq = 0;
   async function performSearch(kw) {
+    const seq = ++_searchSeq;
     const server = lastServer;
     searchResults.innerHTML = '<div class="empty-tip">搜索中...</div>';
     searchStatus.textContent = "正在搜索";
     try {
       const data = await XFApi.search(kw, server);
+      if (seq !== _searchSeq) return; // 已被更新的搜索取代
       if (!Array.isArray(data) || !data.length) {
         searchResults.innerHTML = '<div class="empty-tip">没有找到相关歌曲</div>';
         searchStatus.textContent = "0 结果";
@@ -1798,6 +1817,7 @@
       searchStatus.textContent = data.length + " 结果";
       renderSearch(data);
     } catch (e) {
+      if (seq !== _searchSeq) return;
       searchResults.innerHTML = '<div class="empty-tip">' + escapeHtml(e.message) + '</div>';
       searchStatus.textContent = "失败";
     }
@@ -1808,7 +1828,7 @@
     data.forEach((s, i) => {
       const row = document.createElement("div");
       row.className = "song-row";
-      row.dataset.sid = s.url || s.pic || "";
+      row.dataset.sid = s.id || ""; // ⚠️ v3.5.4：高亮比对用歌曲 id（原来存 url/pic，与 curSong().id 永不相等 → 播放中无高亮）
       row.innerHTML =
         '<div class="song-thumb">' +
         (s.pic ? '<img src="' + escapeAttr(s.pic) + '" onerror="this.parentNode.textContent=\'♪\';this.remove()">' : "♪") +
@@ -1879,9 +1899,12 @@
       song.lrc = text;
       song._lines = XFLyrics.parseLrc(text);
       // ⚠️ QQ 音乐接口返回的 lyric 字段本身是 QRC 格式（[ms,ms]字(偏移,时长)字...），
-      //    标准 LRC 解析（parseLrc）解析不出 0 行 → 直接用 QRC 行替换（含逐字时间戳）
+      //    标准 LRC 解析（parseLrc）解析不出 0 行 → 直接用逐字行替换（含逐字时间戳）
       if (!song._lines.length && song.yrc) {
-        const charLines = XFLyrics.parseQrc(song.yrc) || XFLyrics.parseYrc(song.yrc);
+        // ⚠️ v3.5.4：用 parseCharLines 按格式识别（YRC 主格式=行头后跟 "(" → parseYrc；
+        //    QRC=行头后是文本 → parseQrc）。不能用 parseQrc(...)||parseYrc(...) 或 .length 回退——
+        //    parseQrc 对 YRC 主格式会错位解析出数据（字时间=下一字时间戳）且空数组是 truthy
+        const charLines = XFLyrics.parseCharLines(song.yrc);
         if (charLines && charLines.length) {
           song._lines = charLines.map((cl) => ({
             time: Math.round(cl.start * 1000),
@@ -1890,10 +1913,8 @@
           }));
         }
       } else if (song.yrc) {
-        // 网易云 YRC：标准 LRC 行 + 逐字挂载
-        const charLines = song.yrc.trim().startsWith("[")
-          ? XFLyrics.parseQrc(song.yrc) || XFLyrics.parseYrc(song.yrc)
-          : XFLyrics.parseYrc(song.yrc) || XFLyrics.parseQrc(song.yrc);
+        // 网易云 YRC：标准 LRC 行 + 逐字挂载（parseCharLines 已按格式正确识别）
+        const charLines = XFLyrics.parseCharLines(song.yrc);
         XFLyrics.attachChars(song._lines, charLines);
       }
       // 若当前正在播放这首，刷新歌词显示
@@ -2190,10 +2211,20 @@
       slideLoading = true;
       const onReady = () => {
         newV.removeEventListener("loadeddata", onReady);
+        newV.removeEventListener("error", onFail);
         slideLoading = false;
         slidePlayVideo(newV);
       };
+      // ⚠️ v3.5.4：视频加载失败（损坏/格式不支持）→ 复位 slideLoading 并跳到下一张，避免轮播永久卡死
+      const onFail = () => {
+        newV.removeEventListener("loadeddata", onReady);
+        newV.removeEventListener("error", onFail);
+        slideLoading = false;
+        slideHideLayer(newV);
+        slideNext();
+      };
       newV.addEventListener("loadeddata", onReady, { once: true });
+      newV.addEventListener("error", onFail, { once: true });
       newV.load();
     } else {
       // 图片：切回图片双缓冲 + 定时轮换

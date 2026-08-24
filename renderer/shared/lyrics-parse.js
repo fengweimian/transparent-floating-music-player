@@ -152,5 +152,19 @@
     }
   }
 
-  window.XFLyrics = { parseLrc, parseQrc, parseYrc, attachChars };
+  // ---------- 逐字格式识别（QRC vs YRC）----------
+  // ⚠️ v3.5.4：不能靠"parseQrc 返回空数组"回退——parseQrc 对 YRC 主格式会**错位解析出数据**
+  //    （字的时间戳=下一字时间戳、首字/末字时间戳丢失），导致 YRC 逐字数据被错误采用。
+  //    正确做法：按行结构判断——行头后紧跟 "(" → YRC 主格式（(cursor,dur)文本，时间戳在前）；
+  //    行头后是文本 → QRC（文本(cursor,dur)，时间戳在后）。
+  function isYrcFormat(raw) {
+    // 行头后紧跟 "("：带括号 [ms,ms]( 或不带括号 ms,ms( 都算 YRC 主格式
+    return /^\[?\d+,\d+\]?\s*\(/.test(String(raw || "").trim());
+  }
+  function parseCharLines(raw) {
+    const s = String(raw || "");
+    return isYrcFormat(s) ? parseYrc(s) : parseQrc(s);
+  }
+
+  window.XFLyrics = { parseLrc, parseQrc, parseYrc, parseCharLines, isYrcFormat, attachChars };
 })();

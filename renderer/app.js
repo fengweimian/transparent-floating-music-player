@@ -169,8 +169,10 @@
     settings = await window.electronAPI.settings.get();
     // 应用主题（html[data-theme] 由 style.css 定义多套强调色）
     document.documentElement.dataset.theme = settings.theme || "aurora";
-    player.setVolume(settings.volume || 0.8);
-    volumeSlider.value = (settings.volume || 0.8) * 100;
+    // ⚠️ v3.5.4：用 != null 判断——volume=0（静音）是合法值，`|| 0.8` 会把 0 回退成 0.8（静音状态重启丢失）
+    const initVol = settings.volume != null ? settings.volume : 0.8;
+    player.setVolume(initVol);
+    volumeSlider.value = initVol * 100;
     if (settings.slideshowInterval) slideshow.setInterval(settings.slideshowInterval);
     applyLyricsFontSize(settings.lyricsFontSize || 22);
     applyLyricsFont(settings.lyricsFont || "");
@@ -335,6 +337,9 @@
 
   function setupKeyboard() {
     document.addEventListener("keydown", (e) => {
+      // ⚠️ v3.5.4：输入框/文本域/下拉框聚焦时豁免全局快捷键（否则设置面板 select 方向键被抢、输入框空格丢失）
+      const tag = e.target && (e.target.tagName || "");
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (importDialog.classList.contains("open") || newPlaylistDialog.classList.contains("open")) {
         if (e.code === "Escape") { closeImportDialog(); closeNewPlaylistDialog(); }
         return;
@@ -1603,6 +1608,9 @@
   // ========== 网易云内嵌扫码登录弹窗（v3.4.x，后台隐藏窗口抓官方页 canvas 二维码） ==========
   let neQrModalListenerAttached = false;
   function openNeteaseLoginWindow() {
+    // ⚠️ v3.5.4：先关掉可能存在的隐藏登录窗口（网易云/QQ/酷狗共用 login-close-btn 弹窗时旧 modal 被 remove，
+    //    其 close 回调不执行 → 隐藏窗口泄漏；这里显式关闭）
+    try { if (window.electronAPI && window.electronAPI.login) window.electronAPI.login.closeWindow(); } catch {}
     const existing = document.getElementById("kugou-login-modal");
     if (existing) existing.remove();
     const modal = document.createElement("div");
