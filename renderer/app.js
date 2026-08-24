@@ -659,14 +659,15 @@
     // ⚠️ v3.5.5：排除"本地音乐"（source=local 是 musicFolder 动态扫描歌单，不可写）；
     //    空态/底部提供"新建歌单并加入"入口——修复"搜索到的音乐无法导入歌单"（用户只有本地音乐歌单时原菜单显示"暂无歌单"）
     const pls = myPlaylists.filter((pl) => pl.source !== "local");
-    // 主进程 playlists 数组不含"本地音乐"，local 存在时真实下标需 +1
-    const offset = getPlaylistOffset();
     if (pls.length === 0) {
       menu.innerHTML = '<div class="dropdown-item empty">暂无自定义歌单（"本地音乐"为文件夹歌单，不可添加）</div>';
     } else {
       menu.innerHTML = pls.map((pl, pi) => {
-        const realIdx = pi + offset;
-        return `<div class="dropdown-item" data-pi="${realIdx}">${escapeHtml(pl.name)} (${pl.songs ? pl.songs.length : 0}首)</div>`;
+        // ⚠️ v3.5.5 修复：pi 已是"过滤掉本地音乐后的主进程数组下标"，**不能再加 getPlaylistOffset()**！
+        //    原来 realIdx = pi + offset（offset 用于 myPlaylists 下标→主进程下标，如 removePlaylist/removeSong），
+        //    但 pls 已排除 local → 加了 offset 会越界/加错歌单：
+        //    （有本地音乐歌单时 offset=1，新建歌单后 playlists=[新歌单]，realIdx=1 → playlists[1] 越界 → 静默失败）
+        return `<div class="dropdown-item" data-pi="${pi}">${escapeHtml(pl.name)} (${pl.songs ? pl.songs.length : 0}首)</div>`;
       }).join("");
       menu.querySelectorAll(".dropdown-item").forEach((item) => {
         item.addEventListener("click", async (e) => {
@@ -1142,6 +1143,18 @@
     });
     player.on("trackchange", async (track) => {
       const seq = ++coverSeq; // 封面竞态防护：只应用最后一次切歌的封面
+
+      // ⚠️ v3.5.5 本地"最近听过"：每次切换歌曲记录一条播放历史（在线/本地都记，跨平台）
+      if (track && track.name) {
+        try {
+          window.electronAPI.history.add({
+            id: track.id || "",
+            name: track.name || "",
+            artist: track.artist || "",
+            server: track.type === "local" ? "local" : (track.server || "netease"),
+          });
+        } catch {}
+      }
 
       // 转发给桌面歌词窗口（track 可能为 null = 队列清空）
       if (settings.desktopLyrics) {
@@ -1967,10 +1980,10 @@
         switchDailyPlatform();
       });
     });
-    // 最近听过：本周/全部切换（⚠️ 排除 platform-type，否则会误绑定 daily 的平台切换按钮）
+    // 最近听过：今天/近7天/全部切换（⚠️ v3.5.5：recordType 为字符串 "1d"/"7d"/"all"，不能用 parseInt）
     document.querySelectorAll(".record-type:not(.platform-type)").forEach((t) => {
       t.addEventListener("click", () => {
-        loadNeteaseRecord(parseInt(t.dataset.recordType));
+        loadNeteaseRecord(t.dataset.recordType);
       });
     });
   }
@@ -2160,39 +2173,75 @@
     });
   }
 
-  // ⑥ 最近听过（type=1 本周 / 0 全部）
-  let lastRecordType = 1;
+  // ⑥ 最近听过 —— ⚠️ v3.5.5 改为**本地播放历史**（应用内所有平台歌曲，跨安装保留，不依赖网易云登录）
+  let lastRecordType = "1d";
   async function loadNeteaseRecord(type = lastRecordType) {
     lastRecordType = type;
     // 同步切换按钮高亮（⚠️ 排除 platform-type，避免误改 daily 平台按钮的 active）
     document.querySelectorAll(".record-type:not(.platform-type)").forEach((t) => {
       t.classList.toggle("active", String(t.dataset.recordType) === String(type));
     });
-    if (!(await isNeteaseLoggedIn())) {
-      neteaseRecordStatus.textContent = "未登录网易云（登录后可用最近听过）";
+    neteaseRecordStatus.textContent = "加载中...";
+    try {
+      const all = await window.electronAPI.history.list();
+      const now = Date.now();
+      const dayMs = 24 * 3600 * 1000;
+      let filtered = Array.isArray(all) ? all : [];
+      if (type === "1d") filtered = filtered.filter((h) => now - h.playedAt <= dayMs);
+      else if (type === "7d") filtered = filtered.filter((h) => now - h.playedAt <= 7 * dayMs);
+      const label = type === "1d" ? "今天听过" : (type === "7d" ? "近7天听过" : "全部听过");
+      neteaseRecordStatus.textContent = "";
+      neteaseRecordList.innerHTML =
+        `<div class="netease-pl-section-title">${label}（${filtered.length}）</div>` +
+        (filtered.length === 0
+          ? emptyStateHTML("music", "还没有播放过歌曲", "播放任意平台的歌曲后，这里会记录你的听歌足迹")
+          : filtered.map((s, i) => `
+            <div class="netease-song-row" data-idx="${i}" data-id="${s.id}" data-server="${s.server || ""}">
+              <span class="netease-song-idx">${i + 1}</span>
+              <span class="netease-song-name">${escapeHtml(s.name)}</span>
+              <span class="netease-song-artist">${escapeHtml(s.artist || "")}</span>
+              <span class="netease-song-time">${fmtPlayTime(s.playedAt)}</span>
+            </div>`).join(""));
+      neteaseRecordList.querySelectorAll(".netease-song-row").forEach((row) => {
+        row.addEventListener("click", () => {
+          const idx = parseInt(row.dataset.idx);
+          playHistorySong(filtered[idx]);
+        });
+      });
+    } catch (e) {
+      neteaseRecordStatus.textContent = "加载失败";
       neteaseRecordList.innerHTML = "";
+    }
+  }
+
+  // 本地历史歌曲点击播放（在线歌按 server 入队播放；本地文件歌在队列中找同 id）
+  function playHistorySong(h) {
+    if (!h) return;
+    if (h.server === "local") {
+      // 本地文件：在播放队列（setMusicFolder 载入）中按 id 找
+      const lp = player.getPlaylist();
+      const idx = lp.findIndex((t) => t.type === "local" && String(t.id) === String(h.id));
+      if (idx >= 0) {
+        player.playOnlineTrack(idx);
+        return;
+      }
+      showToast("本地音乐", "未找到该本地文件，请先选择音乐文件夹", "info");
       return;
     }
-    neteaseRecordStatus.textContent = "加载中...";
-    const songs = await XFAccount.neteaseRecord(type);
-    neteaseRecordStatus.textContent = "";
-    const label = type === 1 ? "最近一周听过" : "全部听过";
-    neteaseRecordList.innerHTML =
-      `<div class="netease-pl-section-title">${label}（${songs.length}）</div>` +
-      (songs.length === 0
-        ? emptyStateHTML("music", "还没有听过歌曲", "播放几首歌曲后，这里会记录你的听歌足迹")
-        : songs.map((s, i) => `
-          <div class="netease-song-row" data-idx="${i}" data-id="${s.id}">
-            <span class="netease-song-idx">${i + 1}</span>
-            <span class="netease-song-name">${escapeHtml(s.name)}</span>
-            <span class="netease-song-artist">${escapeHtml(s.artist)}</span>
-          </div>`).join(""));
-    neteaseRecordList.querySelectorAll(".netease-song-row").forEach((row) => {
-      row.addEventListener("click", () => {
-        const idx = parseInt(row.dataset.idx);
-        playNeteaseSongs(songs.slice(idx));
-      });
-    });
+    const track = { id: h.id, name: h.name, artist: h.artist, server: h.server || "netease", pic: "", picId: "" };
+    const added = player.addOnlineSongs([track], h.server || "netease");
+    const startIdx = added > 0 ? player.getPlaylist().length - 1 : findOnlineTrackIndex(track);
+    player.playOnlineTrack(startIdx >= 0 ? startIdx : 0);
+  }
+
+  function fmtPlayTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    if (sameDay) return hm;
+    return `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`;
   }
 
   // ========== Lyrics Updater ==========

@@ -180,8 +180,10 @@
     <div id="netease-subtab-record" class="netease-subtab-content">
       <div class="netease-panel-header">
         <span class="netease-record-switch">
-          <span class="record-type active" data-record-type="1">本周</span>
-          <span class="record-type" data-record-type="0">全部</span>
+          <!-- ⚠️ v3.5.5 本地"最近听过"：改为应用内播放历史（今天/近7天/全部），不再依赖网易云登录 -->
+          <span class="record-type active" data-record-type="1d">今天</span>
+          <span class="record-type" data-record-type="7d">近7天</span>
+          <span class="record-type" data-record-type="all">全部</span>
         </span>
         <span id="netease-record-status" class="netease-panel-status"></span>
       </div>

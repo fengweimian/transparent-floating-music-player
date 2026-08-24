@@ -373,6 +373,17 @@
     if (idx < 0 || idx >= queue.length) return;
     currentIdx = idx;
     const song = queue[idx];
+    // ⚠️ v3.5.5 本地"最近听过"：播放时记录（在线/本地都记）
+    if (song && song.name) {
+      try {
+        window.electronAPI.history.add({
+          id: song.id || "",
+          name: song.name || "",
+          artist: song.artist || "",
+          server: song.type === "local" ? "local" : (song.server || "netease"),
+        });
+      } catch (e) {}
+    }
     initSpectrum();
     if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
     lastLyricIdx = -1;
@@ -1339,17 +1350,27 @@
       wrap.appendChild(sec);
     }
 
-    // 最近听过（周）
-    const record = await XFAccount.neteaseRecord(1);
-    if (record.length) {
-      const sec = document.createElement("div");
-      sec.innerHTML = '<div class="acct-section-title">最近听过（本周）</div>';
-      const list = document.createElement("div");
-      list.innerHTML = record.slice(0, 50).map((s) => acctSongRowHtml(s)).join("");
-      bindAcctSongRows(list, record.slice(0, 50));
-      sec.appendChild(list);
-      wrap.appendChild(sec);
-    }
+    // 最近听过 —— ⚠️ v3.5.5 改为本地播放历史（应用内所有平台歌曲，不依赖网易云登录）
+    //    过滤 server=local（本地文件在新模板无 file:// 播放入口，仅在线歌可点播）
+    try {
+      const all = await window.electronAPI.history.list();
+      const localRecord = (Array.isArray(all) ? all : []).filter((h) => h.server !== "local");
+      if (localRecord.length) {
+        const sec = document.createElement("div");
+        sec.innerHTML = '<div class="acct-section-title">最近听过（本地，' + localRecord.length + '）</div>';
+        const top = localRecord.slice(0, 50);
+        const list = document.createElement("div");
+        list.innerHTML = top.map((s) => acctSongRowHtml({
+          id: s.id || "",
+          server: s.server || "netease",
+          name: s.name || "",
+          artist: s.artist || "",
+        })).join("");
+        bindAcctSongRows(list, top);
+        sec.appendChild(list);
+        wrap.appendChild(sec);
+      }
+    } catch (e) {}
 
     if (!wrap.querySelector(".acct-pl-grid") && !wrap.querySelector(".song-row")) {
       wrap.innerHTML += '<div class="empty-tip">暂无可用数据</div>';

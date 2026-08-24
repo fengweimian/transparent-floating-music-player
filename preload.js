@@ -70,6 +70,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     removeSong: (playlistIndex, songIndex) => ipcRenderer.invoke("playlists:removeSong", playlistIndex, songIndex),
     rename: (playlistIndex, newName) => ipcRenderer.invoke("playlists:rename", playlistIndex, newName),
   },
+  // ⚠️ v3.5.5 本地"最近听过"：应用内播放历史
+  history: {
+    add: (song) => ipcRenderer.invoke("history:add", song),
+    list: () => ipcRenderer.invoke("history:list"),
+  },
   desktopLyrics: {
     toggle: (enabled) => ipcRenderer.invoke("desktop-lyrics:toggle", enabled),
     close: () => ipcRenderer.invoke("desktop-lyrics:close"),

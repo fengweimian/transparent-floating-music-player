@@ -1992,6 +1992,15 @@ html[data-theme="forest"] {
   white-space: nowrap;
 }
 
+/* ⚠️ v3.5.5 本地"最近听过"：播放时间（今天显示时分，跨天显示日期+时分） */
+.netease-song-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.32);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* 每日推荐面板头部（状态 + 刷新按钮） */
 .netease-panel-header {
   display: flex;
@@ -2057,6 +2066,36 @@ html[data-theme="forest"] {
 }
 .qqmusic-panel .netease-pl-grid {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+/* ⚠️ v3.5.5 方案A：「我的歌单」页内平台歌单区（网易云/QQ/酷狗）改横向单行滚动——
+   不再占 max-height 16vh 挤压本地/导入歌单区（playlist-list-wrap flex:1 拿回全部剩余空间）。
+   仅限定 #netease-subtab-my 容器：每日推荐区（#netease-subtab-daily）不受影响（其 #qqmusic-daily-list
+   仍有 ID 级 max-height:42vh 覆盖）。 */
+#netease-subtab-my .qqmusic-panel {
+  flex-shrink: 0;
+  max-height: none;      /* 覆盖 .qqmusic-panel 的 16vh——按内容自适应（标题+单行卡片 ~115px） */
+  overflow: hidden;
+}
+#netease-subtab-my .qqmusic-panel .netease-pl-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 8px;
+  padding: 4px 10px 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+#netease-subtab-my .qqmusic-panel .netease-pl-card {
+  flex: 0 0 auto;
+  width: 150px;
+}
+#netease-subtab-my .qqmusic-panel .netease-pl-card-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ===== 响应式适配（窗口缩放时布局自适应） ===== */
