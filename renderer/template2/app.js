@@ -273,12 +273,14 @@
       updateNowPlaying();
       renderQueue();
       if (song && song.url) {
-        audio.src = song.url;
+        // v3.5.6：预设 src 仅供暂停态恢复；播放态由 startPlay 统一处理（避免双重 load 打断 play()）
+        if (!s.playing) audio.src = song.url;
         const applyT = () => {
           try { audio.currentTime = Math.min(_restoreTime, audio.duration || 0); } catch (e) {}
-          audio.removeEventListener("loadedmetadata", applyT);
+          clearRestoreSeekListener();
         };
-        audio.addEventListener("loadedmetadata", applyT);
+        _restoreSeekHandler = applyT;
+        if (!s.playing) audio.addEventListener("loadedmetadata", applyT);
         const d = audio.duration || 0;
         const pct = d ? (_restoreTime / d) * 100 : 0;
         progressFill.style.width = pct + "%";
@@ -301,7 +303,8 @@
             }).catch(() => {});
           } else if (song.url) {
             startPlay(song);
-            if (song.type === "online") applyRestoreSeek(); // local 由上面 applyT 处理 seek
+            // 播放态恢复统一用 applyRestoreSeek seek 到上次进度（restore 不再预设 src/applyT）
+            applyRestoreSeek();
           }
           if (song.type === "online" && (song.lrcUrl || (song.id && song.server))) fetchOnlineLrc(song);
           scheduleSaveState();
@@ -359,12 +362,40 @@
       window.electronAPI.desktopLyrics.forward(data);
     }
   }
+  // 恢复流程注册的 loadedmetadata seek 监听（startPlay 重设 src 前移除，避免叠加残留）
+  let _restoreSeekHandler = null;
+  function clearRestoreSeekListener() {
+    if (_restoreSeekHandler) {
+      audio.removeEventListener("loadedmetadata", _restoreSeekHandler);
+      _restoreSeekHandler = null;
+    }
+  }
   function startPlay(song) {
-    audio.src = song.url;
+    // 防重赋值：src 已指向同一地址时不再赋值，避免二次 load 中断 play() promise
+    //（"The play() request was interrupted by a new load request" 的根因）
+    const cur = (audio.src || "").replace(/\/$/, "");
+    const target = song.url.replace(/\/$/, "");
+    if (cur !== target && cur !== encodeURI(target)) {
+      clearRestoreSeekListener();
+      audio.src = song.url;
+    }
     audio.play().then(() => {
       playing = true; updatePlayIcon();
       forwardDl({ type: "playstate", playing: true });
     }).catch((e) => {
+      // AbortError：play() 被新加载请求打断 → canplay 后重试一次
+      if (e && e.name === "AbortError") {
+        const retry = () => {
+          audio.removeEventListener("canplay", retry);
+          audio.play().then(() => {
+            playing = true; updatePlayIcon();
+            forwardDl({ type: "playstate", playing: true });
+          }).catch(() => {});
+        };
+        if (audio.readyState >= 3) { retry(); }
+        else audio.addEventListener("canplay", retry);
+        return;
+      }
       showFeedback("播放失败：" + (e && e.message ? e.message : "未知错误"));
       forwardDl({ type: "playstate", playing: false });
     });
