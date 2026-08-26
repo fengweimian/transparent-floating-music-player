@@ -13,6 +13,7 @@
   const fontSizeValue = $("#font-size-value");
   const fontSelect = $("#lyrics-font");
   const fontCount = $("#font-count");
+  const uiFontSelect = $("#set-ui-font");
   const translationToggle = $("#show-translation");
   const desktopLyricsToggle = $("#desktop-lyrics-toggle");
   const charColorInput = $("#char-color");
@@ -70,6 +71,9 @@
     if (settings.desktopLyricsFont && [...dlFontSelect.options].some((o) => o.value === settings.desktopLyricsFont)) {
       dlFontSelect.value = settings.desktopLyricsFont;
     }
+    if (settings.uiFont && uiFontSelect && [...uiFontSelect.options].some((o) => o.value === settings.uiFont)) {
+      uiFontSelect.value = settings.uiFont;
+    }
   }
 
   // 加载系统字体列表
@@ -85,6 +89,12 @@
         opt2.value = f;
         opt2.textContent = f;
         dlFontSelect.appendChild(opt2);
+        if (uiFontSelect) {
+          const opt3 = document.createElement("option");
+          opt3.value = f;
+          opt3.textContent = f;
+          uiFontSelect.appendChild(opt3);
+        }
       });
       fontCount.textContent = `${fonts.length} 个可用字体`;
       // ⚠️ 字体列表就绪后再回填保存的字体（否则设置丢失显示"默认"）
@@ -206,6 +216,7 @@
       slideshowInterval: parseInt(intervalSlider.value),
       lyricsFontSize: parseInt(fontSizeSlider.value),
       lyricsFont: fontSelect.value || "",
+      uiFont: uiFontSelect ? uiFontSelect.value || "" : settings.uiFont || "",
       showTranslation: translationToggle.checked,
       desktopLyrics: desktopLyricsToggle.checked,
       charColor: charColorInput.value || "#ff4d4f",

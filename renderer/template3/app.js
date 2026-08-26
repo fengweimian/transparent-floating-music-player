@@ -12,13 +12,12 @@
   const LS_SETTINGS = "xf-settings";
   const LS_PLAYLISTS = "xf-playlists";
 
-  // ============ DOM ============
+  // ============ DOM（模板三：歌词剧场布局）============
   const $ = (id) => document.getElementById(id);
   const cover = $("cover");
   const coverImg = $("cover-img");
-  const vinylLabel = $("vinyl-label");
-  const mainTitle = $("main-title");
-  const subTitle = $("sub-title");
+  const ttName = $("tt-name");
+  const ttArtist = $("tt-artist");
   const folderInput = $("folder-input");
   const btnPlay = $("btn-play");
   const iconPlay = $("icon-play");
@@ -28,18 +27,17 @@
   const btnMode = $("btn-mode");
   const btnMore = $("btn-more");
   const moreMenu = $("more-menu");
-  const progressEl = $("progress");
-  const progressFill = $("progress-fill");
-  const progressDot = $("progress-dot");
-  const timeCurrent = $("time-current");
-  const timeTotal = $("time-total");
-  const lrcPrev = $("lrc-prev");
-  const lrcCurrent = $("lrc-current");
-  const lrcNext = $("lrc-next");
+  const progressEl = $("tbar");
+  const progressFill = $("tfill");
+  const timeCurrent = $("t-cur");
+  const timeTotal = $("t-total");
+  // 左侧 7 行倾斜歌词列（上3 当前行 下3）
+  const lrcCol = $("lrc-col");
+  const LRC_SLOTS = ["u3", "u2", "u1", "cur", "d1", "d2", "d3"].map((c) => lrcCol.querySelector(".lrc." + c));
+  const lrcCurrent = LRC_SLOTS[3];
   const bg = $("bg");
   const searchInput = $("search-input");
   const searchChannels = $("search-channels");
-  const searchHint = $("search-hint");
   const searchPanel = $("search-panel");
   const searchResults = $("search-results");
   const searchStatus = $("search-status");
@@ -50,7 +48,6 @@
   const playlistsList = $("playlists-list");
   const plCount = $("pl-count");
   const settingsPanel = $("settings-panel");
-  const motivationEl = $("motivation");
   // 右上角登录入口（未登录→登录按钮；已登录→头像+昵称徽标）
   const loginEntry = $("login-entry");
   const btnLoginEntry = $("btn-login-entry");
@@ -61,7 +58,7 @@
   // ============ 设置（localStorage 持久化）============
   const defaultSettings = {
     theme: "aurora",
-    template: "new",
+    template: "v3",
     slideInterval: 8,
     uiFont: "",
     lyricsSize: 36,
@@ -287,7 +284,6 @@
         const d = audio.duration || 0;
         const pct = d ? (_restoreTime / d) * 100 : 0;
         progressFill.style.width = pct + "%";
-        progressDot.style.left = pct + "%";
         timeCurrent.textContent = fmtTime(_restoreTime);
         timeTotal.textContent = fmtTime(d);
       }
@@ -296,7 +292,6 @@
       if (s.playing && song) {
         const resume = () => {
           initSpectrum();
-          if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
           if (song.type === "online" && !song.url && song.id && song.server) {
             XFApi.url(song.id, song.server).then((u) => {
               if (u) {
@@ -419,7 +414,6 @@
       } catch (e) {}
     }
     initSpectrum();
-    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
     lastLyricIdx = -1;
     updateNowPlaying();
     renderQueue();
@@ -457,15 +451,13 @@
   function updatePlayIcon() {
     iconPlay.style.display = playing ? "none" : "";
     iconPause.style.display = playing ? "" : "none";
-    // 唱片旋转：有歌曲才转；播放中转、暂停停转（保持当前角度）
-    cover.classList.toggle("spinning", !!curSong());
-    cover.classList.toggle("paused", !playing);
+    // 模板三：body.playing/paused 驱动唱片旋转 + 唱臂起落 + 波形
+    document.body.classList.toggle("playing", !!curSong() && playing);
+    document.body.classList.toggle("paused", !playing);
   }
 
   btnPlay.addEventListener("click", () => {
     if (currentIdx < 0) { showFeedback("请先搜索歌曲或选择音乐文件夹"); return; }
-    initSpectrum();
-    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
     const song = curSong();
     if (!song) return;
     // 音频未就绪（url 缺失）→ 重新走 playAt 完整流程（含拉取音频地址）
@@ -485,13 +477,8 @@
     }
   });
 
-  // 全局手势解锁：任何点击/键盘都尝试恢复音频上下文（规避浏览器自动播放策略）
-  document.addEventListener("pointerdown", () => {
-    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
-  });
-  document.addEventListener("keydown", () => {
-    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
-  });
+  // 全局手势解锁（保留：规避浏览器自动播放策略）
+  document.addEventListener("pointerdown", () => {}, { passive: true });
 
   btnPrev.addEventListener("click", () => {
     if (!queue.length) return;
@@ -538,9 +525,7 @@
     const rect = progressEl.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     audio.currentTime = ratio * audio.duration;
-    const pct = ratio * 100;
-    progressFill.style.width = pct + "%";
-    progressDot.style.left = pct + "%";
+    progressFill.style.width = (ratio * 100) + "%";
   }
 
   // 进度 + 时间
@@ -549,7 +534,6 @@
     const t = audio.currentTime, d = audio.duration || 0;
     const pct = d ? (t / d) * 100 : 0;
     progressFill.style.width = pct + "%";
-    progressDot.style.left = pct + "%";
     timeCurrent.textContent = fmtTime(t);
     timeTotal.textContent = fmtTime(d);
     // 桌面歌词：低频转发（~250ms）
@@ -582,88 +566,80 @@
   function updateNowPlaying() {
     const song = curSong();
     if (!song) return;
-    setMarquee(mainTitle, song.name);
-    setMarquee(subTitle, song.artist || "未知歌手");
-    // 唱片中心标签：歌名首字
-    if (vinylLabel) vinylLabel.textContent = (song.name || "♫").trim().charAt(0);
+    ttName.textContent = song.name || "未知歌曲";
+    ttArtist.textContent = song.artist || "未知歌手";
     if (song.cover) {
       coverImg.src = song.cover;
       coverImg.classList.add("show");
-      cover.classList.add("has-cover");
-      bg.classList.add("has-cover");
     } else {
-      // 搜索/歌单未带封面（酷狗/歌曲宝）→ 调 music.pic 兜底（对齐旧模板：酷狗 getSongInfo / 歌曲宝详情页 mp3_cover）
+      // 搜索/歌单未带封面（酷狗/歌曲宝）→ 调 music.pic 兜底
       if (song.type === "online" && song.id && XFStore.isElectron) {
         XFApi.pic(song.id, song.server, song.picId || "").then((u) => {
           if (u && curSong() === song) {
             song.cover = u;
             coverImg.src = u;
             coverImg.classList.add("show");
-            cover.classList.add("has-cover");
-            bg.classList.add("has-cover");
           }
         }).catch(() => {});
       }
       coverImg.classList.remove("show");
-      cover.classList.remove("has-cover");
-      bg.classList.remove("has-cover");
     }
     // 歌词预解析
     const lines = song.lrc ? XFLyrics.parseLrc(song.lrc) : [];
     song._lines = lines;
     if (!lines.length) {
-      lrcPrev.textContent = "";
-      lrcCurrent.textContent = "暂无歌词";
-      lrcCurrent.className = "lyric-line current";
-      lrcNext.textContent = "";
+      lastLyricIdx = -1;
+      renderLrcColumn(null);
     }
   }
 
-  // 歌名/歌手滚动
-  function setMarquee(container, text) {
-    let inner = container.querySelector(".marquee-inner");
-    if (!inner) {
-      while (container.firstChild) container.removeChild(container.firstChild);
-      inner = document.createElement("span");
-      inner.className = "marquee-inner";
-      container.appendChild(inner);
-    }
-    inner.textContent = text;
-    requestAnimationFrame(() => {
-      const avail = container.clientWidth;
-      const full = inner.scrollWidth;
-      if (full > avail) {
-        container.style.textAlign = "left";
-        const dist = avail - full - 80;
-        inner.style.setProperty("--scroll-dist", dist + "px");
-        const dur = Math.min(24, Math.max(8, Math.abs(dist) / 40));
-        inner.style.setProperty("--scroll-dur", dur + "s");
-        inner.classList.remove("static");
-        inner.style.animation = "none";
-        void inner.offsetWidth;
-        inner.style.animation = "";
-      } else {
-        inner.classList.add("static");
-        container.style.textAlign = "";
-      }
-    });
-  }
-
-  // ============ 歌词行渲染 ============
+  // ============ 歌词行渲染（模板三：7 行倾斜歌词列）============
+  // 单行内容：.lyric-main 承载逐字扫光渐变 + 可选翻译
   function setLine(el, line, showTrans) {
-    if (!line) { el.textContent = ""; return; }
+    if (!line) { el.innerHTML = ""; return; }
     el.innerHTML = "";
     const main = document.createElement("span");
     main.className = "lyric-main";
-    // 逐字行 text 已是 chars 拼接（fetchOnlineLrc 生成），统一整行渐变扫光
     main.textContent = line.text;
     el.appendChild(main);
     if (showTrans && line.trans && settings.showTranslation) {
       const trans = document.createElement("span");
-      trans.className = "lyric-trans";
+      trans.className = "lrc-trans";
       trans.textContent = line.trans;
       el.appendChild(trans);
     }
+  }
+
+  // 按当前行索引渲染整列（offset -3..3 → u3..d3 样式类）
+  function renderLrcColumn(lines, cur) {
+    LRC_SLOTS.forEach((el, i) => {
+      const offset = i - 3;
+      const idx = cur + offset;
+      // 保持样式类（cur 槽位固定 .cur），只换内容
+      setLine(el, lines && idx >= 0 && idx < lines.length ? lines[idx] : (lines && idx === cur ? lines[cur] : null), offset === 0);
+      if (offset === 0 && (!lines || !lines.length)) {
+        el.textContent = "暂无歌词 · 点击右上角 ⋯ 搜索歌曲";
+      }
+    });
+  }
+
+  // 换行缓冲动画（淡出→换字→淡入），与 CSS .swapping/.entering 过渡时长一致
+  const SWAP_OUT = 320, SWAP_IN = 560;
+  let _swapTm1 = null, _swapTm2 = null, _lrcBusy = false;
+  function swapLrcColumn(lines, cur) {
+    clearTimeout(_swapTm1); clearTimeout(_swapTm2);
+    lrcCol.classList.remove("entering");
+    lrcCol.classList.add("swapping");
+    _swapTm1 = setTimeout(() => {
+      renderLrcColumn(lines, cur);
+      lrcCol.classList.remove("swapping");
+      void lrcCol.offsetWidth;
+      lrcCol.classList.add("entering");
+      _swapTm2 = setTimeout(() => {
+        lrcCol.classList.remove("entering");
+        _lrcBusy = false;
+      }, SWAP_IN);
+    }, SWAP_OUT);
   }
 
   // 扫光 + 行切换统一 rAF 驱动
@@ -681,16 +657,22 @@
     }
     if (cur === -1) cur = 0;
     if (cur !== lastLyricIdx) {
+      const prev = lastLyricIdx;
       lastLyricIdx = cur;
-      const last = cur === lines.length - 1;
-      setLine(lrcPrev, cur > 0 ? lines[cur - 1] : null, false);
-      setLine(lrcCurrent, lines[cur], true);
-      setLine(lrcNext, last ? null : lines[cur + 1], false);
-      lrcCurrent.className = "lyric-line current";
+      // 首次渲染/切歌：直接铺开不动画；正常推进：带缓冲动画（动画期间跳过的行直接落位）
+      if (prev === -1 || Math.abs(cur - prev) > 1 || _lrcBusy) {
+        clearTimeout(_swapTm1); clearTimeout(_swapTm2);
+        lrcCol.classList.remove("swapping", "entering");
+        renderLrcColumn(lines, cur);
+        _lrcBusy = false;
+      } else {
+        _lrcBusy = true;
+        swapLrcColumn(lines, cur);
+      }
     }
     if (settings.showScan) {
       const curLine = lines[cur];
-      // 逐字数据：整行渐变连续前沿（经典模板同款）——前沿 = (字索引 + 字内进度) / 总字数 × 100%
+      // 逐字数据：整行渐变连续前沿——前沿 = (字索引 + 字内进度) / 总字数 × 100%
       if (curLine.chars && curLine.chars.length) {
         const chars = curLine.chars;
         const t = ms / 1000;
@@ -723,59 +705,8 @@
     if (!isNaN(r) && !isNaN(g) && !isNaN(b)) root.setProperty("--scan-rgb", r + "," + g + "," + b);
   }
 
-  // ============ 频谱 ============
-  const eqCanvas = $("eq-canvas");
-  const eqCtx = eqCanvas.getContext("2d");
-  let analyser = null, audioCtx = null, spectrumAttempted = false;
-
-  function initSpectrum() {
-    if (analyser || spectrumAttempted) return;
-    spectrumAttempted = true;
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      audioCtx = new AC();
-      const src = audioCtx.createMediaElementSource(audio);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.82;
-      src.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      sizeEqCanvas();
-      window.addEventListener("resize", sizeEqCanvas);
-      drawEq();
-    } catch (e) { /* 降级 */ }
-  }
-  function sizeEqCanvas() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    eqCanvas.width = Math.floor(window.innerWidth * dpr);
-    eqCanvas.height = Math.floor(110 * dpr);
-  }
-  function drawEq() {
-    requestAnimationFrame(drawEq);
-    if (!analyser) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const W = eqCanvas.width, H = eqCanvas.height;
-    eqCtx.clearRect(0, 0, W, H);
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(data);
-    const N = 160;
-    const barW = W / N;
-    const gap = barW * 0.25;
-    const barX = Math.max(1, barW - gap);
-    for (let i = 0; i < N; i++) {
-      const arch = 0.25 + 0.75 * Math.pow(Math.sin((i / (N - 1)) * Math.PI), 1.1);
-      const t = i / N;
-      const binIdx = Math.min(data.length - 1, Math.floor(Math.pow(t, 1.5) * (data.length - 1)));
-      const v = data[binIdx] / 255;
-      const h = Math.max(2, v * arch * H * 0.92);
-      const x = i * barW + gap / 2;
-      eqCtx.fillStyle = "rgba(255,255,255,0.38)";
-      eqCtx.fillRect(x, H - h * dpr, barX * dpr, h * dpr);
-      eqCtx.fillStyle = "rgba(255,255,255,0.55)";
-      eqCtx.fillRect(x, H - h * dpr, barX * dpr, Math.max(1, 3 * dpr));
-    }
-  }
+  // ============ 频谱（模板三无频谱画布：保留空实现兼容调用点）============
+  function initSpectrum() {}
 
   // ============ 反馈提示 ============
   let tipTimer;
@@ -928,6 +859,7 @@
   $("menu-playlists").addEventListener("click", (e) => { e.stopPropagation(); moreMenu.classList.remove("open"); closeAllPanels(); playlistsPanel.classList.add("open"); renderPlaylists(); });
   $("menu-settings").addEventListener("click", (e) => { e.stopPropagation(); moreMenu.classList.remove("open"); closeAllPanels(); settingsPanel.classList.add("open"); populateSettings(); });
   $("menu-import").addEventListener("click", (e) => { e.stopPropagation(); moreMenu.classList.remove("open"); openImportDialog(); });
+  $("menu-search").addEventListener("click", (e) => { e.stopPropagation(); moreMenu.classList.remove("open"); openSearchPanel(); });
 
   // ============ 我的音乐（登录后功能：网易云/QQ 歌单·红心·每日推荐·最近听过）============
   const accountPanel = $("account-panel");
@@ -1768,26 +1700,22 @@
       queueList.appendChild(row);
     });
   }
-  // 清空"正在播放"的 UI 状态（队列清空 / 当前曲被移除时调用）：封面、歌词、标题、进度、播放态全重置
+  // 清空"正在播放"的 UI 状态（队列清空 / 当前曲被移除时调用）
   function resetNowPlayingUI() {
     coverImg.src = "";
     coverImg.classList.remove("show");
-    cover.classList.remove("has-cover");
-    cover.classList.remove("spinning", "paused");
-    if (vinylLabel) vinylLabel.textContent = "♫";
-    bg.classList.remove("has-cover");
-    mainTitle.textContent = "小风音乐";
-    subTitle.textContent = "此刻聆听";
-    lrcPrev.textContent = "";
-    lrcCurrent.textContent = "";
-    lrcCurrent.className = "lyric-line current";
+    document.body.classList.remove("playing");
+    document.body.classList.add("paused");
+    ttName.textContent = "小风音乐";
+    ttArtist.textContent = "此刻聆听";
+    lastLyricIdx = -1;
     lrcCurrent.style.removeProperty("--scan-p");
-    lrcNext.textContent = "";
+    clearTimeout(_swapTm1); clearTimeout(_swapTm2);
+    lrcCol.classList.remove("swapping", "entering");
+    renderLrcColumn(null);
     progressFill.style.width = "0%";
-    progressDot.style.left = "0%";
     timeCurrent.textContent = "0:00";
     timeTotal.textContent = "0:00";
-    lastLyricIdx = -1;
     // 桌面歌词：清空 + 停止
     forwardDl({ type: "trackchange", track: null });
     forwardDl({ type: "playstate", playing: false });
@@ -1976,10 +1904,7 @@
       if (curSong() === song) {
         lastLyricIdx = -1;
         if (!song._lines.length) {
-          lrcPrev.textContent = "";
-          lrcCurrent.textContent = "暂无歌词";
-          lrcCurrent.className = "lyric-line current";
-          lrcNext.textContent = "";
+          renderLrcColumn(null);
         }
       }
     } catch (e) { /* 歌词获取失败忽略 */ }
@@ -2008,19 +1933,23 @@
     }
   }
 
-  // ============ 在线搜索入口 ============
-  searchHint.addEventListener("click", () => {
-    const kw = searchInput.value.trim();
-    if (!kw) { showFeedback("请输入歌名"); searchInput.focus(); return; }
+  // ============ 在线搜索入口（面板内输入，回车搜索）============
+  function openSearchPanel() {
     closeAllPanels();
     moreMenu.classList.remove("open");
     searchPanel.classList.add("open");
+    renderChannels();
+    searchInput.focus();
+    // 面板已有关键词结果时保持显示
+    if (searchResultsData.length) renderSearch(searchResultsData);
+  }
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const kw = searchInput.value.trim();
+    if (!kw) { showFeedback("请输入歌名"); searchInput.focus(); return; }
     lastKeyword = kw;
     renderChannels();
     performSearch(kw);
-  });
-  searchInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") searchHint.click();
   });
 
   // ============ 歌单管理（XFStore：桌面版主进程 / 浏览器 localStorage）============
@@ -2187,31 +2116,10 @@
   const slideImgFront = $("slide-img-front");
   const slideVideoBack = $("slide-video-back");
   const slideVideoFront = $("slide-video-front");
-  const slideSearchBar = document.querySelector(".online-search");
 
-  // 导入背景后进入 B 状态布局（body.bg-imported），并启用搜索框空闲自动隐藏
-  let searchHideTimer = null, searchAutoHideBound = false;
+  // 导入背景后进入 B 状态布局（模板三：仅淡出默认渐变层，无布局变换）
   function slideSetBgMode(on) {
     document.body.classList.toggle("bg-imported", on);
-    if (on) {
-      if (!searchAutoHideBound && slideSearchBar) {
-        searchAutoHideBound = true;
-        slideSearchBar.classList.add("auto-hide");
-        const schedule = () => {
-          clearTimeout(searchHideTimer);
-          searchHideTimer = setTimeout(() => slideSearchBar.classList.add("search-hidden"), 2000);
-        };
-        document.addEventListener("mousemove", () => {
-          slideSearchBar.classList.remove("search-hidden");
-          schedule();
-        }, { passive: true });
-        schedule();
-      }
-    } else {
-      if (slideSearchBar) slideSearchBar.classList.remove("auto-hide", "search-hidden");
-      clearTimeout(searchHideTimer);
-      searchAutoHideBound = false;
-    }
   }
 
   function slideHideLayer(el) { if (el) el.classList.remove("on"); }
@@ -2446,7 +2354,7 @@
     $("set-show-trans").checked = settings.showTranslation;
     $("set-show-scan").checked = settings.showScan;
     $("set-slide-on").checked = settings.slideEnabled;
-    $("set-quote-on").checked = settings.quoteEnabled;
+    if ($("set-quote-on")) $("set-quote-on").checked = settings.quoteEnabled;
     applyLyricsFontSelection();
     // 桌面歌词
     if ($("set-dl-on")) {
@@ -2489,8 +2397,9 @@
     // 实时预览字号（未保存不持久化，保存按钮才写入 settings）
     const px = parseInt($("set-lyrics-size").value) || 36;
     const root = document.documentElement.style;
-    root.setProperty("--lyrics-size", px + "px");
-    root.setProperty("--lyrics-size-current", (px + 8) + "px");
+    root.setProperty("--lrc-cur", px + "px");
+    root.setProperty("--lrc-adj", Math.round(px * 0.72) + "px");
+    root.setProperty("--lrc-far", Math.round(px * 0.56) + "px");
   });
   $("set-dl-size").addEventListener("input", () => {
     $("dl-size-val").textContent = $("set-dl-size").value + "px";
@@ -2523,7 +2432,7 @@
     settings.showTranslation = $("set-show-trans").checked;
     settings.showScan = $("set-show-scan").checked;
     settings.slideEnabled = $("set-slide-on").checked;
-    settings.quoteEnabled = $("set-quote-on").checked;
+    settings.quoteEnabled = $("set-quote-on") ? $("set-quote-on").checked : settings.quoteEnabled;
     // 桌面歌词
     settings.desktopLyrics = $("set-dl-on") ? $("set-dl-on").checked : settings.desktopLyrics;
     settings.desktopLyricsLines = parseInt(($("set-dl-lines") || {}).value) || 1;
@@ -2569,47 +2478,27 @@
   function applyAllSettings() {
     applyTheme();
     applyScanColor();
-    const root = document.documentElement.style;
     // 程序界面字体（留空回退默认字体栈）
+    const root = document.documentElement.style;
     if (settings.uiFont) {
       root.setProperty("--ui-font", settings.uiFont + ', "Microsoft YaHei", "PingFang SC", sans-serif');
     } else {
       root.removeProperty("--ui-font");
     }
-    // 歌词字号
-    root.setProperty("--lyrics-size", settings.lyricsSize + "px");
-    root.setProperty("--lyrics-size-current", (settings.lyricsSize + 8) + "px");
+    // 歌词字号（模板三：当前行/相邻行/远行三档）
+    const base = settings.lyricsSize || 36;
+    root.setProperty("--lrc-cur", base + "px");
+    root.setProperty("--lrc-adj", Math.round(base * 0.72) + "px");
+    root.setProperty("--lrc-far", Math.round(base * 0.56) + "px");
     // 歌词字体（留空回退默认字体栈）
     if (settings.lyricsFont) {
-      root.setProperty("--lyrics-font", settings.lyricsFont + ', "Microsoft YaHei", "PingFang SC", sans-serif');
+      root.setProperty("--lrc-font", settings.lyricsFont + ', "Microsoft YaHei", "PingFang SC", sans-serif');
     } else {
-      root.removeProperty("--lyrics-font");
+      root.removeProperty("--lrc-font");
     }
-    // 励志句
-    motivationEl.style.display = settings.quoteEnabled ? "" : "none";
     // 幻灯片
     startSlideshow();
   }
-
-  // 励志句轮换
-  const quotes = [
-    "把平凡的日子，过成滚烫的诗",
-    "音乐响起的地方，就是诗和远方",
-    "生活不止眼前的苟且，还有歌和星光",
-    "所有的美好，都藏在下一次播放里",
-    "愿你眼里有光，心中有歌，脚下有风",
-    "慢慢来，比较快",
-  ];
-  let qi = 0;
-  setInterval(() => {
-    if (!settings.quoteEnabled) return;
-    motivationEl.classList.add("fade");
-    setTimeout(() => {
-      qi = (qi + 1) % quotes.length;
-      motivationEl.textContent = quotes[qi];
-      motivationEl.classList.remove("fade");
-    }, 600);
-  }, 6000);
 
   // ============ 初始化 ============
   // 自动加载经典模板设置的本地音乐文件夹（跨模板共享：队列空时自动扫描，含子目录）
@@ -2651,8 +2540,6 @@
     scheduleSaveState();
   }
 
-  setMarquee(mainTitle, mainTitle.textContent.trim());
-  setMarquee(subTitle, subTitle.textContent.trim());
   applyAllSettings();
   refreshPlaylists();
   // 恢复上次播放状态（经典模板共享 music-player-state，切换模板后无缝延续队列/进度）

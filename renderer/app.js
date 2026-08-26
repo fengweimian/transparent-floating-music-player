@@ -176,6 +176,7 @@
     if (settings.slideshowInterval) slideshow.setInterval(settings.slideshowInterval);
     applyLyricsFontSize(settings.lyricsFontSize || 22);
     applyLyricsFont(settings.lyricsFont || "");
+    applyUiFont(settings.uiFont || "");
     applyCharColor(settings.charColor || "#ff4d4f");
     lyrics.setShowTranslation(!!settings.showTranslation);
 
@@ -2260,6 +2261,7 @@
     if (settings.slideshowInterval) slideshow.setInterval(settings.slideshowInterval);
     applyLyricsFontSize(settings.lyricsFontSize || 22);
     applyLyricsFont(settings.lyricsFont || "");
+    applyUiFont(settings.uiFont || "");
     if (typeof newSettings.charColor !== "undefined") {
       applyCharColor(newSettings.charColor);
     }
@@ -2305,6 +2307,11 @@
     style.id = "dynamic-lyrics-font";
     style.textContent = `.lyrics-line, .lyrics-placeholder { font-family: ${JSON.stringify(font)}, "Microsoft YaHei", sans-serif !important; }`;
     document.head.appendChild(style);
+  }
+
+  // 程序界面字体（三个模板共用 settings.uiFont；空值恢复默认）
+  function applyUiFont(font) {
+    document.body.style.fontFamily = font ? `${JSON.stringify(font)}, "Microsoft YaHei", "PingFang SC", sans-serif` : "";
   }
 
   // 逐字歌词已播放字颜色（设置页可配，CSS 变量方式）

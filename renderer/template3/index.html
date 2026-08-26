@@ -1,0 +1,953 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小风音乐 · 模板三（静态预览）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* 主题变量与程序一致：接入后applyTheme 可直接覆盖*/
+  :root {
+    --a1: 100, 140, 255;
+    --a2: 120, 100, 255;
+    --panel: 18, 18, 32;
+    --ui-font: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;   /* 程序界面字体（设置可改） */
+    --lrc-font: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    --tilt: -7deg;            /* 歌词列倾斜角度 */
+    --lrc-cur: clamp(22px, 2.6vw, 34px);
+    --lrc-adj: clamp(17px, 1.9vw, 25px);
+    --lrc-far: clamp(15px, 1.6vw, 21px);
+    --vinyl: min(38vh, 34vw); /* 唱片直径 */
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: var(--ui-font);
+    color: #fff;
+    background: #0a0a12;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ===== 全屏背景层（接入后幻灯片 img/video 挂在 .bg-media 内）===== */
+  .bg-media {
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(900px 600px at 75% 30%, rgba(var(--a1), 0.28), transparent 65%),
+      radial-gradient(700px 500px at 20% 80%, rgba(var(--a2), 0.22), transparent 65%),
+      linear-gradient(160deg, #191423 0%, #0d0b14 55%, #070609 100%);
+  }
+  .bg-shade {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.35) 100%),
+      linear-gradient(180deg, rgba(0,0,0,0.3), transparent 25%, transparent 75%, rgba(0,0,0,0.4));
+  }
+
+  /* ===== 左侧：倾斜滚动歌词列===== */
+  .lrc-col {
+    position: fixed;
+    left: 5vw; top: 50%;
+    width: 44vw;
+    z-index: 10;
+    transform: translateY(-50%) rotate(var(--tilt));
+    transform-origin: center center;
+    display: flex; flex-direction: column;
+    gap: 2.6vh;
+    text-align: left;
+    perspective: 700px;
+  }
+  .lrc {
+    font-family: var(--lrc-font, "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif);
+    font-weight: 500;
+    letter-spacing: 2px;
+    line-height: 1.45;
+    white-space: normal; word-break: break-word;
+    color: rgba(255, 255, 255, 0.4);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.45);
+    transition: color 0.5s, font-size 0.5s, opacity 0.5s, text-shadow 0.5s, transform 0.5s;
+  }
+  /* 换行缓冲：整列淡出（沿倾斜方向轻微上滑）→ 换字 → 淡入 */
+  .lrc-col.swapping .lrc {
+    opacity: 0 !important;
+    transition: opacity 0.32s ease-in, transform 0.32s ease-in;
+  }
+  .lrc-col.swapping .lrc.cur   { transform: translateZ(0) translateY(-1.2vh); }
+  .lrc-col.swapping .lrc:not(.cur) { transform: translateZ(-40px) translateY(-0.8vh); }
+  /* 淡入阶段：从下方轻浮回位 */
+  .lrc-col.entering .lrc {
+    transition: opacity 0.55s ease-out, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.55s, font-size 0.55s, text-shadow 0.55s;
+  }
+  .lrc-col.entering .lrc.cur   { transform: translateZ(0) translateY(1.6vh); }
+  .lrc-col.entering .lrc:not(.cur) { transform: translateZ(-40px) translateY(1vh); }
+  /* 距当前行的距离决定样式：近→大而亮，远→小而淡（带轻微纵深）*/
+  .lrc.d2 { font-size: var(--lrc-far); opacity: 0.35; transform: translateZ(-60px); }
+  .lrc.d1 { font-size: var(--lrc-adj); opacity: 0.6;  transform: translateZ(-25px); }
+  .lrc.cur {
+    font-size: var(--lrc-cur);
+    font-weight: 700;
+    color: #ffffff;
+    opacity: 1;
+    transform: translateZ(0);
+    text-shadow: 0 0 24px rgba(var(--a1), 0.55), 0 2px 14px rgba(0,0,0,0.55);
+  }
+  .lrc.u1 { font-size: var(--lrc-adj); opacity: 0.6;  transform: translateZ(-25px); }
+  .lrc.u2 { font-size: var(--lrc-far); opacity: 0.35; transform: translateZ(-60px); }
+  .lrc.u3 { font-size: var(--lrc-far); opacity: 0.16; transform: translateZ(-90px); }
+  .lrc.d3 { font-size: var(--lrc-far); opacity: 0.16; transform: translateZ(-90px); }
+
+  /* ===== 右侧：黑胶唱片机 ===== */
+  .deck {
+    position: fixed;
+    right: 7vw; top: 50%;
+    transform: translateY(-54%);
+    z-index: 10;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .vinyl-stage { position: relative; width: var(--vinyl); height: var(--vinyl); }
+
+  /* 唱片本体 */
+  .vinyl {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background:
+      repeating-radial-gradient(circle at 50% 50%,
+        #17171b 0px, #17171b 1.5px, #26262d 1.5px, #26262d 3px,
+        #101014 3px, #101014 4.5px),
+      radial-gradient(circle at 50% 50%, #000 52%, #1e1e25 76%, #0a0a0d 100%);
+    box-shadow:
+      0 22px 60px rgba(0,0,0,0.65),
+      inset 0 0 46px rgba(0,0,0,0.85),
+      inset 0 0 3px rgba(255,255,255,0.07);
+  }
+  /* 封面（唱片中央圆形区）*/
+  .vinyl-cover {
+    position: absolute; left: 50%; top: 50%;
+    width: 62%; height: 62%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgb(var(--a1)), rgb(var(--a2)) 55%, #3d2f8f);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.12), inset 0 0 30px rgba(0,0,0,0.4);
+  }
+  .vinyl-cover::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(255,255,255,0.22), transparent 45%);
+  }
+  /* 旋转组：唱片 + 封面一起转 */
+  .spin-group {
+    position: absolute; inset: 0;
+    animation: spin 9s linear infinite;
+    animation-play-state: running;
+  }
+  body.paused .spin-group { animation-play-state: paused; }
+  @keyframes spin { to { transform: rotate(-360deg); } }
+  /* 中心转*/
+  .spindle {
+    position: absolute; left: 50%; top: 50%;
+    width: 3.2%; height: 3.2%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #d8d8de;
+    box-shadow: 0 0 6px rgba(0,0,0,0.8);
+    z-index: 3;
+  }
+  /* 高光 */
+  .vinyl-shine {
+    position: absolute; inset: 0; border-radius: 50%;
+    pointer-events: none; z-index: 2;
+    background: conic-gradient(
+      from 200deg,
+      rgba(255,255,255,0.12) 0deg, transparent 55deg,
+      transparent 175deg, rgba(255,255,255,0.08) 215deg,
+      transparent 260deg, transparent 360deg);
+  }
+
+  /* 唱臂（播放时落下搭在唱片上，暂停时抬起） */
+  .tonearm {
+    position: absolute;
+    right: -6%; top: -9%;
+    width: 34%; height: 60%;
+    z-index: 5;
+    transform-origin: 78% 14%;
+    transform: rotate(0deg);
+    transition: transform 0.9s cubic-bezier(0.34, 1.2, 0.4, 1);
+  }
+  body.paused .tonearm { transform: rotate(-26deg); }
+  .arm-base {
+    position: absolute; right: 8%; top: 0;
+    width: 26%; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #4a4a55, #1c1c22 70%);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6), inset 0 0 0 2px rgba(255,255,255,0.1);
+  }
+  .arm-rod {
+    position: absolute; right: 16%; top: 9%;
+    width: 5.5%; height: 86%;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #c9c9d2, #7a7a86 60%, #55555f);
+    box-shadow: 1px 2px 5px rgba(0,0,0,0.55);
+    transform: rotate(24deg);
+    transform-origin: top center;
+  }
+  .arm-head {
+    position: absolute; left: 24%; bottom: 2%;
+    width: 13%; height: 11%;
+    border-radius: 3px;
+    background: linear-gradient(160deg, #e6e6ee, #9a9aa6);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    transform: rotate(24deg);
+  }
+
+  /* ===== 唱片下方控制区===== */
+  .deck-controls {
+    margin-top: 3.2vh;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 1.6vh;
+  }
+  /* 波形小图标*/
+  .wave-mini { display: flex; align-items: center; gap: 2.5px; height: 16px; opacity: 0.9; }
+  .wave-mini i {
+    width: 3px; border-radius: 2px;
+    background: #fff;
+    animation: wb 1s ease-in-out infinite;
+  }
+  body.paused .wave-mini i { animation-play-state: paused; height: 20% !important; opacity: 0.5; }
+  @keyframes wb { 0%, 100% { height: 25%; } 50% { height: 100%; } }
+
+  /* 时间表*/
+  .time-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11.5px; color: rgba(255,255,255,0.65);
+    font-variant-numeric: tabular-nums; letter-spacing: 1px;
+  }
+  .tbar { width: min(30vh, 220px); height: 12px; display: flex; align-items: center; cursor: pointer; }
+  .tbar-track {
+    position: relative; width: 100%; height: 2.5px; border-radius: 2px;
+    background: rgba(255,255,255,0.25);
+  }
+  .tbar-fill {
+    position: absolute; left: 0; top: 0; height: 100%; width: 36%;
+    border-radius: 2px; background: #fff;
+    box-shadow: 0 0 8px rgba(255,255,255,0.6);
+  }
+
+  /* 三键 */
+  .ctl-row { display: flex; align-items: center; gap: 26px; }
+  .cbtn {
+    background: none; border: none; cursor: pointer; padding: 6px;
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    transition: transform 0.14s, opacity 0.14s;
+    opacity: 0.92; font-family: inherit;
+  }
+  .cbtn:hover { transform: scale(1.16); opacity: 1; }
+  .cbtn:active { transform: scale(0.92); }
+  .cbtn.main svg { filter: drop-shadow(0 3px 12px rgba(0,0,0,0.5)); }
+
+  /* ===== 顶部角落：极简窗口钮===== */
+  .corner {
+    position: fixed; top: 16px; right: 20px; z-index: 30;
+    display: flex; gap: 8px;
+  }
+  .wbtn {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.25);
+    color: rgba(255,255,255,0.85); cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: background 0.15s, transform 0.1s; font-family: inherit;
+  }
+  .wbtn:hover { background: rgba(255,255,255,0.18); transform: scale(1.08); }
+  .wbtn.close:hover { background: rgba(255,60,60,0.6); border-color: rgba(255,60,60,0.7); }
+
+  /* 曲目名（左上角，小字）*/
+  .track-tag {
+    position: fixed; top: 20px; left: 24px; z-index: 30;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; letter-spacing: 2px; color: rgba(255,255,255,0.6);
+  }
+  .track-tag b { color: #fff; font-size: 13.5px; letter-spacing: 1px; }
+  .track-tag .sep { opacity: 0.4; }
+
+  #tip {
+    position: fixed; left: 50%; bottom: 6vh; transform: translateX(-50%);
+    z-index: 99; padding: 9px 20px; border-radius: 999px;
+    background: rgba(var(--panel), 0.9);
+    border: 1px solid rgba(255,255,255,0.14);
+    font-size: 12.5px; letter-spacing: 1px;
+    opacity: 0; transition: opacity 0.25s; pointer-events: none;
+  }
+  #tip.show { opacity: 1; }
+
+  @media (max-width: 900px) {
+    :root { --vinyl: min(30vh, 60vw); }
+    .lrc-col { left: 6vw; width: 56vw; }
+    .deck { right: 50%; transform: translate(50%, -50%); top: 24%; }
+  }
+
+  /* ================== 幻灯片背景层（与 template2 同 id/结构）================= */
+  #bg { position: fixed; inset: 0; z-index: 0; }
+  #bg .slide-img, #bg .slide-video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0; transition: opacity 1.2s ease; pointer-events: none;
+  }
+  #bg .slide-img.on { opacity: 0.5; }
+  #bg .slide-video.on { opacity: 1; }
+  body:has(#bg .slide-video.on) .bg-shade {
+    background:
+      linear-gradient(90deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.05) 45%, rgba(0,0,0,0.2) 100%),
+      linear-gradient(180deg, rgba(0,0,0,0.2), transparent 25%, transparent 78%, rgba(0,0,0,0.3));
+  }
+  /* 导入背景后氛围光斑淡出（bg-media 即默认渐变层）*/
+  body.bg-imported .bg-media { opacity: 0; transition: opacity 1s; }
+  .bg-media { transition: opacity 1s; }
+
+  /* 歌词逐字扫光（当前行内.lyric-main 渐变）*/
+  .lrc.cur .lyric-main {
+    background: linear-gradient(
+      to right,
+      var(--scan-color, rgb(var(--a1))) var(--scan-p, 0%),
+      #ffffff var(--scan-p, 0%)
+    );
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 14px rgba(var(--scan-rgb, 100,140,255), 0.45));
+  }
+  .lrc-trans {
+    display: block; margin-top: 0.8vh;
+    font-size: 0.52em; font-weight: 300; letter-spacing: 3px;
+    color: rgba(255,255,255,0.55);
+  }
+
+  /* ================== 弹出面板（与 template2 同 class/结构）================= */
+  .panel {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    z-index: 500; width: 560px; max-width: 90vw; max-height: 76vh;
+    background: rgba(var(--panel), 0.94);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    display: none; flex-direction: column; overflow: hidden;
+    pointer-events: auto;
+  }
+  .panel.open { display: flex; }
+  .panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
+  }
+  .panel-title { flex: 1; font-size: 15px; font-weight: 600; letter-spacing: 2px; }
+  .panel-sub { font-size: 11px; color: rgba(255,255,255,0.4); }
+  .panel-close {
+    width: 26px; height: 26px; border: none; border-radius: 50%;
+    background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+    cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .panel-close:hover { background: rgba(255,60,60,0.3); color: #fff; }
+  .panel-body { flex: 1; overflow-y: auto; padding: 10px; min-height: 0; }
+  .panel-body::-webkit-scrollbar { width: 4px; }
+  .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+  #settings-panel > .panel-body { display: flex; overflow: hidden; padding: 0; }
+  .panel-footer {
+    padding: 10px 18px; border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+
+  /* 歌曲行*/
+  .song-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 10px; cursor: pointer;
+    transition: background 0.13s;
+  }
+  .song-row:hover { background: rgba(255,255,255,0.08); }
+  .song-row.playing { background: rgba(255,255,255,0.13); }
+  .song-row .song-thumb {
+    width: 38px; height: 38px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(255,255,255,0.08); object-fit: cover;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; font-size: 16px;
+  }
+  .song-row .song-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .song-row .song-info { flex: 1; min-width: 0; }
+  .song-row .song-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .song-row .song-artist { font-size: 11px; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .song-row .song-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .song-row .act-btn, .pl-card-actions .act-btn {
+    padding: 4px 9px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7);
+    cursor: pointer; font-size: 11px; font-family: inherit;
+    transition: background 0.13s, color 0.13s;
+  }
+  .song-row .act-btn:hover, .pl-card-actions .act-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+  .song-row .act-btn.play-btn, .pl-card-actions .act-btn.play-btn { border-color: rgba(255,255,255,0.3); color: #fff; }
+  .empty-tip { padding: 26px; text-align: center; font-size: 13px; color: rgba(255,255,255,0.35); }
+
+  /* 搜索渠道栏*/
+  .search-channels { display: flex; gap: 8px; padding: 10px 16px 0; flex-wrap: wrap; }
+  .search-channels .ch-tab {
+    padding: 5px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7);
+    font-size: 12px; font-family: inherit; cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .search-channels .ch-tab:hover { background: rgba(255,255,255,0.14); color: #fff; }
+  .search-channels .ch-tab.active {
+    background: rgba(255,255,255,0.92); color: #111;
+    border-color: rgba(255,255,255,0.92); font-weight: 600;
+  }
+
+  /* 歌单卡片 */
+  .pl-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; margin-bottom: 8px; overflow: hidden; }
+  .pl-card-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; cursor: pointer; transition: background 0.13s;
+  }
+  .pl-card-head:hover { background: rgba(255,255,255,0.05); }
+  .pl-card-name { flex: 1; font-size: 13px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl-card-count { font-size: 11px; color: rgba(255,255,255,0.4); flex-shrink: 0; }
+  .pl-card-body { display: none; padding: 4px 8px 8px; border-top: 1px solid rgba(255,255,255,0.05); max-height: 30vh; overflow-y: auto; }
+  .pl-card.open .pl-card-body { display: block; }
+  .pl-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .import-input {
+    flex: 1; min-width: 0;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; color: #fff; font-size: 13px; font-family: inherit;
+    padding: 9px 12px; outline: none;
+  }
+  .import-input::placeholder { color: rgba(255,255,255,0.35); }
+
+  /* 更多菜单 */
+  .more-menu {
+    position: fixed; top: 56px; right: 20px;
+    z-index: 400; min-width: 196px;
+    background: rgba(var(--panel), 0.92);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 16px;
+    box-shadow: 0 16px 44px rgba(0,0,0,0.55);
+    padding: 8px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  .more-menu.open { opacity: 1; pointer-events: auto; }
+  .menu-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; font-size: 14px;
+    color: rgba(255,255,255,0.92); border-radius: 10px; cursor: pointer;
+    transition: background 0.14s, color 0.14s;
+  }
+  .menu-item:hover { background: rgba(255,255,255,0.12); color: #fff; }
+  .menu-item span { letter-spacing: 1px; }
+  .menu-divider { height: 1px; margin: 6px 10px; background: rgba(255,255,255,0.1); }
+
+  /* ===== 账号面板 ===== */
+  .acct-tabs {
+    display: flex; gap: 8px; margin-bottom: 14px; padding: 3px;
+    border-radius: 999px; background: rgba(255,255,255,0.08); width: fit-content;
+  }
+  .acct-tab {
+    padding: 7px 20px; border: none; border-radius: 999px;
+    background: transparent; color: rgba(255,255,255,0.6);
+    font-size: 13px; font-family: inherit; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .acct-tab.active { background: rgba(255,255,255,0.18); color: #fff; }
+  .acct-tab:hover:not(.active) { color: #fff; }
+  .acct-login-tip { padding: 26px 10px; text-align: center; color: rgba(255,255,255,0.5); font-size: 13px; }
+  .acct-login-btns { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+  .acct-login-btn {
+    padding: 9px 22px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.1); color: #fff; font-size: 13px; font-family: inherit;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
+  }
+  .acct-login-btn:hover { background: rgba(255,255,255,0.22); transform: translateY(-1px); }
+  .acct-user-line {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,0.06);
+  }
+  .acct-user-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.15); }
+  .acct-user-name { font-size: 14px; font-weight: 600; color: #fff; }
+  .acct-logout-btn {
+    width: 100%; margin: 2px 0 14px; padding: 9px 0;
+    border-radius: 10px; border: 1px solid rgba(255,80,80,0.4);
+    background: rgba(255,60,60,0.12); color: rgba(255,110,110,0.95);
+    font-size: 13px; font-family: inherit; cursor: pointer;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+  }
+  .acct-logout-btn:hover { background: rgba(255,60,60,0.25); color: #fff; transform: translateY(-1px); }
+  .kg-qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 10px; }
+  .kg-qr-img { width: 190px; height: 190px; border-radius: 12px; background: #fff; padding: 6px; box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
+  .kg-qr-img img { width: 100%; height: 100%; display: block; border-radius: 8px; }
+  .kg-qr-status { font-size: 13px; color: rgba(255,255,255,0.65); min-height: 18px; }
+  .kg-qr-refresh { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 6px 16px; font-size: 12px; cursor: pointer; }
+  .kg-qr-refresh:hover { background: rgba(255,255,255,0.22); }
+  .acct-section-title {
+    margin: 16px 0 8px; font-size: 12px; letter-spacing: 2px;
+    color: rgba(255,255,255,0.45); font-weight: 500;
+  }
+  .acct-pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .acct-pl-card {
+    padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05); cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .acct-pl-card:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); }
+  .acct-pl-name { font-size: 13px; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acct-pl-meta { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 4px; }
+  .acct-heart { color: #ff6b81; }
+
+  /* ===== 设置面板 ===== */
+  .set-group { margin-bottom: 18px; }
+  .set-title { font-size: 12px; letter-spacing: 2px; color: rgba(255,255,255,0.45); margin-bottom: 10px; text-transform: uppercase; }
+  .settings-body { display: flex; gap: 0; flex: 1; min-height: 0; min-width: 0; }
+  .settings-nav {
+    flex: 0 0 92px; border-right: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 6px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto;
+  }
+  .settings-nav-item {
+    padding: 8px 10px; border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.55);
+    cursor: pointer; white-space: nowrap; transition: background 0.13s, color 0.13s;
+  }
+  .settings-nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+  .settings-nav-item.active { background: rgba(255,255,255,0.14); color: #fff; }
+  .settings-window { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 12px 16px; }
+  .settings-window::-webkit-scrollbar, .settings-nav::-webkit-scrollbar { width: 4px; }
+  .settings-window::-webkit-scrollbar-thumb, .settings-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+  .set-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 13px; min-height: 32px; }
+  .set-row > label { width: 96px; flex-shrink: 0; color: rgba(255,255,255,0.75); }
+  .set-row select, .set-row input[type="range"] { flex: 1; min-width: 0; }
+  .set-row input[type="range"] { accent-color: #fff; }
+  .set-row select {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; color: #fff; padding: 6px 8px; font-family: inherit; outline: none;
+  }
+  .set-row select option { background: #1a1a2e; }
+  .set-row input[type="color"] { flex: 0 0 auto; width: 42px; height: 28px; border: none; background: none; cursor: pointer; padding: 0; }
+  .set-row .set-val { min-width: 44px; text-align: right; color: rgba(255,255,255,0.55); font-size: 12px; }
+  .set-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.85); }
+  .set-check input { width: 16px; height: 16px; accent-color: #fff; cursor: pointer; }
+  .set-info { font-size: 11px; color: rgba(255,255,255,0.35); margin: -2px 0 10px 108px; }
+  .set-btn {
+    padding: 9px 26px; border-radius: 999px; border: none;
+    background: rgba(255,255,255,0.14); color: #fff;
+    font-size: 13px; font-family: inherit; cursor: pointer; letter-spacing: 1px;
+    transition: background 0.15s;
+  }
+  .set-btn:hover { background: rgba(255,255,255,0.25); }
+  .set-btn.primary { background: #fff; color: #111; font-weight: 600; }
+  .set-btn.primary:hover { background: rgba(255,255,255,0.85); }
+
+  /* ===== 登录入口（右上角）==== */
+  #login-entry { display: flex; align-items: center; margin-right: 2px; }
+  #btn-login-entry {
+    display: flex; align-items: center; gap: 6px;
+    height: 30px; padding: 0 12px;
+    border: 1px solid rgba(255,255,255,0.22); border-radius: 999px;
+    background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.85);
+    font-size: 12px; line-height: 1; font-family: inherit; cursor: pointer;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: background 0.15s, transform 0.1s;
+  }
+  #btn-login-entry:hover { background: rgba(255,255,255,0.18); transform: scale(1.05); }
+  #login-summary {
+    display: flex; align-items: center; gap: 7px;
+    height: 30px; padding: 0 10px 0 4px;
+    border-radius: 999px; border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(0,0,0,0.25); cursor: pointer;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: background 0.15s, transform 0.1s;
+  }
+  #login-summary:hover { background: rgba(255,255,255,0.15); transform: scale(1.03); }
+  #login-avatars { display: flex; }
+  #login-avatars img, #login-avatars .login-avatar-placeholder {
+    width: 24px; height: 24px; border-radius: 50%; object-fit: cover;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(var(--panel), 0.9);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff;
+  }
+  #login-avatars img + img, #login-avatars img + .login-avatar-placeholder,
+  #login-avatars .login-avatar-placeholder + img,
+  #login-avatars .login-avatar-placeholder + .login-avatar-placeholder { margin-left: -9px; }
+  #login-summary-text {
+    font-size: 11px; color: rgba(255,255,255,0.85);
+    max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* 音量弹出层*/
+  #volume-pop {
+    position: fixed; z-index: 600;
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px;
+    background: rgba(var(--panel), 0.92);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    transform: translateX(-50%);
+  }
+  #volume-pop input[type="range"] { width: 110px; accent-color: #fff; cursor: pointer; }
+  #volume-pop span {
+    font-size: 11px; color: rgba(255,255,255,0.7);
+    min-width: 34px; text-align: right; font-variant-numeric: tabular-nums;
+  }
+
+  /* 封面图（唱片中央）*/
+  #cover-img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; border-radius: 50%; opacity: 0; transition: opacity 0.5s;
+  }
+  #cover-img.show { opacity: 1; }
+  .vinyl-cover::after { pointer-events: none; }
+
+  .track-tag b, .track-tag .tt-artist {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 24vw;
+  }
+  .track-tag .tt-artist { color: rgba(255,255,255,0.6); font-size: 12px; }
+</style>
+</head>
+<body class="playing">
+
+<!-- 背景层：幻灯片img/video 双缓冲（与template2 同 id）-->
+<div class="bg-media" id="bg-media"></div>
+<div id="bg">
+  <img class="slide-img" id="slide-img-back" alt="">
+  <img class="slide-img" id="slide-img-front" alt="">
+  <video class="slide-video" id="slide-video-back" muted playsinline preload="auto"></video>
+  <video class="slide-video" id="slide-video-front" muted playsinline preload="auto"></video>
+</div>
+<div class="bg-shade"></div>
+
+<!-- 左上角曲目-->
+<div class="track-tag" id="track-tag">
+  <b id="tt-name">小风音乐</b>
+  <span class="sep">/</span>
+  <span class="tt-artist" id="tt-artist">此刻聆听</span>
+</div>
+
+<!-- 右上角：登录入口 + 更多 + 窗口钮-->
+<div class="corner" id="window-controls">
+  <div id="login-entry" title="账号与登录">
+    <button id="btn-login-entry">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span id="login-btn-text">登录</span>
+    </button>
+    <div id="login-summary" style="display:none">
+      <div id="login-avatars"></div>
+      <span id="login-summary-text"></span>
+    </div>
+  </div>
+  <button class="wbtn" id="btn-more" title="更多">&#8943;</button>
+  <button class="wbtn" id="win-min" title="最小化">&#8212;</button>
+  <button class="wbtn close" id="win-close" title="退出">&#10005;</button>
+</div>
+
+<!-- 左侧倾斜歌词列-->
+<div class="lrc-col" id="lrc-col">
+  <div class="lrc u3"></div>
+  <div class="lrc u2"></div>
+  <div class="lrc u1"></div>
+  <div class="lrc cur"></div>
+  <div class="lrc d1"></div>
+  <div class="lrc d2"></div>
+  <div class="lrc d3"></div>
+</div>
+
+<!-- 右侧黑胶唱片机-->
+<div class="deck">
+  <div class="vinyl-stage" id="cover">
+    <div class="vinyl"></div>
+    <div class="spin-group">
+      <div class="vinyl-cover"><img id="cover-img" alt=""></div>
+    </div>
+    <div class="vinyl-shine"></div>
+    <div class="tonearm">
+      <div class="arm-base"></div>
+      <div class="arm-rod"></div>
+      <div class="arm-head"></div>
+    </div>
+    <div class="spindle"></div>
+  </div>
+
+  <div class="deck-controls">
+    <div class="wave-mini" id="wave">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+    <div class="time-row">
+      <span id="t-cur">0:00</span>
+      <div class="tbar" id="tbar"><div class="tbar-track"><div class="tbar-fill" id="tfill" style="width:0%"></div></div></div>
+      <span id="t-total">0:00</span>
+    </div>
+    <div class="ctl-row">
+      <button class="cbtn" id="btn-mode" title="播放模式：列表循环" style="opacity:0.55">
+        <svg id="mode-repeat" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        <svg id="mode-shuffle" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="display:none"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        <svg id="mode-repeat-one" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/><line x1="11" y1="10" x2="12" y2="14"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
+      </button>
+      <button class="cbtn" id="btn-prev" title="上一曲">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4"/><rect x="5" y="4" width="2.4" height="16" rx="1.2"/></svg>
+      </button>
+      <button class="cbtn main" id="btn-play" title="播放/暂停">
+        <svg id="icon-play" width="42" height="42" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.3v13.4L19 12z"/></svg>
+        <svg id="icon-pause" width="42" height="42" viewBox="0 0 24 24" fill="#fff" style="display:none"><rect x="6.5" y="5" width="3.6" height="14" rx="1.2"/><rect x="13.9" y="5" width="3.6" height="14" rx="1.2"/></svg>
+      </button>
+      <button class="cbtn" id="btn-next" title="下一曲">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20"/><rect x="16.6" y="4" width="2.4" height="16" rx="1.2"/></svg>
+      </button>
+      <button class="cbtn" id="btn-volume" title="音量" style="opacity:0.55">
+        <svg id="icon-vol-on" width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+        <svg id="icon-vol-mute" width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)" style="display:none"><path d="M3 9v6h4l5 5V4L7 9H3z"/><line x1="16" y1="9" x2="22" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="22" y1="9" x2="16" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 音量滑杆（点击音量图标弹出；放在 .deck 外，避免 fixed 定位受 .deck 的 transform 影响） -->
+<div id="volume-pop" style="display:none">
+  <input type="range" id="volume-slider" min="0" max="100" value="80">
+  <span id="volume-pct">80%</span>
+</div>
+
+<div id="feedback-tip"></div>
+
+<!-- 隐藏文件输入：本地音乐文件夹 / 幻灯片文件夹 -->
+<input type="file" id="folder-input" webkitdirectory multiple style="display:none">
+<input type="file" id="slide-folder" webkitdirectory multiple style="display:none">
+
+<!-- 更多菜单 -->
+<div class="more-menu" id="more-menu">
+  <div class="menu-item" id="menu-local"><span>选择音乐文件夹</span></div>
+  <div class="menu-item" id="menu-import"><span>导入歌单</span></div>
+  <div class="menu-item" id="menu-playlists"><span>我的歌单</span></div>
+  <div class="menu-item" id="menu-queue"><span>播放队列</span></div>
+  <div class="menu-item" id="menu-search"><span>在线搜索</span></div>
+  <div class="menu-item" id="menu-account"><span>我的音乐</span></div>
+  <div class="menu-divider"></div>
+  <div class="menu-item" id="menu-settings"><span>设置</span></div>
+</div>
+
+<!-- 我的音乐面板（账号三渠道）-->
+<div class="panel" id="account-panel">
+  <div class="panel-header">
+    <span class="panel-title">我的音乐</span>
+    <span class="panel-sub" id="account-status"></span>
+    <button class="panel-close" data-close="account-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+  </div>
+  <div class="panel-body" id="account-body">
+    <div class="acct-tabs">
+      <button class="acct-tab active" data-atab="netease">网易云</button>
+      <button class="acct-tab" data-atab="qq">QQ音乐</button>
+      <button class="acct-tab" data-atab="kugou">酷狗</button>
+    </div>
+    <div id="account-content"></div>
+  </div>
+</div>
+
+<!-- 搜索面板 -->
+<div class="panel" id="search-panel">
+  <div class="panel-header">
+    <span class="panel-title">在线搜索</span>
+    <span class="panel-sub" id="search-status"></span>
+    <button class="panel-close" data-close="search-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+  </div>
+  <div class="search-channels" id="search-channels"></div>
+  <div class="panel-body" id="search-results"></div>
+  <div class="panel-footer">
+    <input type="text" class="import-input" id="search-input" placeholder="搜索歌曲，回车搜索.." spellcheck="false" autocomplete="off">
+  </div>
+</div>
+
+<!-- 队列面板 -->
+<div class="panel" id="queue-panel">
+  <div class="panel-header">
+    <span class="panel-title">播放队列</span>
+    <span class="panel-sub" id="queue-count">0 首</span>
+    <button class="panel-close" data-close="queue-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+  </div>
+  <div class="panel-body" id="queue-list"></div>
+  <div class="panel-footer">
+    <button class="set-btn" id="btn-clear-queue">清空队列</button>
+  </div>
+</div>
+
+<!-- 歌单面板 -->
+<div class="panel" id="playlists-panel">
+  <div class="panel-header">
+    <span class="panel-title">我的歌单</span>
+    <span class="panel-sub" id="pl-count">0 个</span>
+    <button class="panel-close" data-close="playlists-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+  </div>
+  <div class="panel-body" id="playlists-list"></div>
+  <div class="panel-footer">
+    <input type="text" class="import-input" id="new-pl-name" placeholder="新建歌单名称..." style="flex:1">
+    <button class="set-btn" id="btn-new-playlist">新建</button>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div class="panel" id="settings-panel">
+  <div class="panel-header">
+    <span class="panel-title">设置</span>
+    <button class="panel-close" data-close="settings-panel"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+  </div>
+  <div class="panel-body">
+    <div class="settings-body">
+      <nav class="settings-nav" id="settings-nav">
+        <div class="settings-nav-item active" data-target="sec-appearance">外观</div>
+        <div class="settings-nav-item" data-target="sec-lyrics">歌词</div>
+        <div class="settings-nav-item" data-target="sec-dl">桌面歌词</div>
+        <div class="settings-nav-item" data-target="sec-slideshow">幻灯片</div>
+        <div class="settings-nav-item" data-target="sec-general">常规</div>
+        <div class="settings-nav-item" data-target="sec-about">关于</div>
+      </nav>
+      <div class="settings-window" id="settings-window">
+        <div class="set-group" id="sec-appearance">
+          <div class="set-title">外观</div>
+          <div class="set-row">
+            <label>主题</label>
+            <select id="set-theme">
+              <option value="aurora">极光 · 蓝紫</option>
+              <option value="ocean">海洋 · 青蓝</option>
+              <option value="sunset">日落 · 橙粉</option>
+              <option value="forest">森林 · 青绿</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <label>程序字体</label>
+            <select id="set-ui-font"><option value="">默认</option></select>
+          </div>
+          <div class="set-row">
+            <label>界面模板</label>
+            <select id="set-template">
+              <option value="classic">经典模板</option>
+              <option value="new">新模板 · 全屏极简</option>
+              <option value="v3">歌词剧场（模板三）</option>
+            </select>
+          </div>
+          <div class="set-info">切换后主窗口立即重载应用（桌面版）</div>
+          <div class="set-row">
+            <label>幻灯片间隔</label>
+            <input type="range" id="set-slide-interval" min="3" max="30" step="1" value="8">
+            <span class="set-val" id="slide-interval-val">8s</span>
+          </div>
+        </div>
+        <div class="set-group" id="sec-lyrics">
+          <div class="set-title">歌词</div>
+          <div class="set-row">
+            <label>字号</label>
+            <input type="range" id="set-lyrics-size" min="18" max="44" step="1" value="36">
+            <span class="set-val" id="lyrics-size-val">36px</span>
+          </div>
+          <div class="set-row">
+            <label>字体</label>
+            <select id="set-lyrics-font"><option value="">默认</option></select>
+          </div>
+          <div class="set-row">
+            <label>扫光颜色</label>
+            <input type="color" id="set-scan-color" value="#ffffff">
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-show-trans"> 显示歌词翻译</label>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-show-scan" checked> 歌词扫光</label>
+          </div>
+        </div>
+        <div class="set-group" id="sec-dl">
+          <div class="set-title">桌面歌词</div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-dl-on"> 显示桌面歌词（置顶悬浮歌词窗口）</label>
+          </div>
+          <div class="set-row">
+            <label>行数</label>
+            <select id="set-dl-lines">
+              <option value="1">单行（仅当前句）</option>
+              <option value="2">双行（当前下一句）</option>
+            </select>
+          </div>
+          <div class="set-row">
+            <label>字体</label>
+            <select id="set-dl-font"><option value="微软雅黑">微软雅黑（默认）</option></select>
+          </div>
+          <div class="set-row">
+            <label>字号</label>
+            <input type="range" id="set-dl-size" min="24" max="72" step="2" value="36">
+            <span class="set-val" id="dl-size-val">36px</span>
+          </div>
+          <div class="set-row">
+            <label>已唱颜色</label>
+            <input type="color" id="set-dl-played" value="#ffffff">
+          </div>
+          <div class="set-row">
+            <label>未唱颜色</label>
+            <input type="color" id="set-dl-unplayed" value="#9a9aa8">
+          </div>
+          <div class="set-row">
+            <label>不透明度</label>
+            <input type="range" id="set-dl-opacity" min="30" max="100" step="5" value="100">
+            <span class="set-val" id="dl-opacity-val">100%</span>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-dl-border"> 文字描边</label>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-dl-taskbar" checked> 覆盖任务栏</label>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-dl-bold"> 粗体</label>
+          </div>
+        </div>
+        <div class="set-group" id="sec-slideshow">
+          <div class="set-title">幻灯片背景</div>
+          <div class="set-row">
+            <label>图片目录</label>
+            <button class="set-btn" id="btn-pick-slide" style="flex:0 0 auto;padding:7px 18px;">选择背景文件夹</button>
+            <span class="panel-sub" id="slide-count"></span>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-slide-on" checked> 启用幻灯片背景</label>
+          </div>
+          <div class="set-info">支持图片与视频（mp4/webm/mov/avi/mkv），视频播完自动切换</div>
+        </div>
+        <div class="set-group" id="sec-general">
+          <div class="set-title">常规</div>
+          <div class="set-row">
+            <label>下载目录</label>
+            <button class="set-btn" id="btn-pick-download" style="flex:0 0 auto;padding:7px 14px;">选择目录</button>
+            <span class="panel-sub" id="download-folder-name">未设置</span>
+          </div>
+          <div class="set-info">未设置时下载功能不可用（在线搜索/歌单下载需要）</div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-startup"> 开机自动启动</label>
+          </div>
+          <div class="set-row">
+            <label class="set-check"><input type="checkbox" id="set-quote-on" checked> 显示励志句子</label>
+          </div>
+        </div>
+        <div class="set-group" id="sec-about">
+          <div class="set-title">关于</div>
+          <div class="set-row">
+            <span class="panel-sub">小风音乐 · 歌词剧场模板（模板三）<br>登录/下载/桌面歌词需桌面版Electron</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-footer">
+    <span class="panel-sub" id="set-save-tip"></span>
+    <button class="set-btn primary" id="btn-save-settings">保存设置</button>
+  </div>
+</div>
+
+<script src="../shared/store.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/search.js"></script>
+<script src="../shared/account.js"></script>
+<script src="../shared/lyrics-parse.js"></script>
+<script src="../shared/utils.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
