@@ -56,9 +56,10 @@
       const re = /([^()]+)\((\d+),(\d+)\)/g;
       let mm;
       while ((mm = re.exec(body)) !== null) {
-        // ⚠️ v3.5.2：保留空格字（QRC 中空格也带时间戳，trim 后为空不应丢弃——否则英文歌词连写）
+        // ⚠️ v3.5.7：保留 token 内空格（QRC 英文歌词空格黏在单词 token 上，如 " world"，
+        //    trim 会吞掉词间空格导致英文连写；仅纯空白 token 归一成单个空格）
         const rawText = mm[1];
-        const text = rawText.trim() || (rawText ? " " : "");
+        const text = /\S/.test(rawText) ? rawText : (rawText ? " " : "");
         const offset = parseInt(mm[2], 10);
         const dur = parseInt(mm[3], 10);
         if (!text) continue;
@@ -110,9 +111,9 @@
       const re = /\((\d+),(\d+)(?:,\d+)?\)([^()]*)/g;
       let mm;
       while ((mm = re.exec(b)) !== null) {
-        // ⚠️ v3.5.2：保留空格字（YRC 中空格带时间戳，trim 后为空不应丢弃）
+        // ⚠️ v3.5.7：保留 token 内空格（YRC 英文歌词空格黏在单词 token 上，trim 会吞掉词间空格）
         const rawText = mm[3] || "";
-        const text = rawText.trim() || (rawText ? " " : "");
+        const text = /\S/.test(rawText) ? rawText : (rawText ? " " : "");
         if (!text) continue;
         chars.push({ text, start: parseInt(mm[1], 10) / 1000, dur: parseInt(mm[2], 10) / 1000 });
       }
@@ -121,8 +122,9 @@
       const re = /([^()]+)\((\d+),(\d+)(?:,\d+)?\)/g;
       let mm;
       while ((mm = re.exec(b)) !== null) {
+        // ⚠️ v3.5.7：同上，保留 token 内空格
         const rawText = mm[1];
-        const text = rawText.trim() || (rawText ? " " : "");
+        const text = /\S/.test(rawText) ? rawText : (rawText ? " " : "");
         if (!text) continue;
         chars.push({ text, start: parseInt(mm[2], 10) / 1000, dur: parseInt(mm[3], 10) / 1000 });
       }
