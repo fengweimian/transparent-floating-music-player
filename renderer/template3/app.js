@@ -584,12 +584,15 @@
       }
       coverImg.classList.remove("show");
     }
-    // 歌词预解析
-    const lines = song.lrc ? XFLyrics.parseLrc(song.lrc) : [];
-    song._lines = lines;
-    if (!lines.length) {
-      lastLyricIdx = -1;
-      renderLrcColumn(null);
+    // 歌词预解析（⚠️ 已有解析结果时不覆盖：QQ 音乐 lyric 字段是 QRC 格式，parseLrc 解析为空，
+    // 若在此覆盖会丢掉 fetchOnlineLrc 已解析好的逐字行 → 切回已播过的歌显示"暂无歌词"）
+    if (!song._lines || !song._lines.length) {
+      const lines = song.lrc ? XFLyrics.parseLrc(song.lrc) : [];
+      song._lines = lines;
+      if (!lines.length) {
+        lastLyricIdx = -1;
+        renderLrcColumn(null);
+      }
     }
   }
 
