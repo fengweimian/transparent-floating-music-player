@@ -1,6 +1,6 @@
 {
   "name": "transparent-music-player",
-  "version": "3.5.9",
+  "version": "3.6.0",
   "description": "全透明无边框音乐播放器，支持在线搜索、全屏图片幻灯片、歌词显示",
   "main": "main.js",
   "scripts": {
@@ -39,12 +39,6 @@
           "arch": [
             "x64"
           ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
         }
       ],
       "icon": "resources/icon.ico"
@@ -55,14 +49,7 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "小风音乐",
-      "installerIcon": null,
-      "uninstallerIcon": null,
-      "installerHeaderIcon": null,
-      "license": null
-    },
-    "portable": {
-      "artifactName": "小风音乐_${version}_便携版.exe"
+      "shortcutName": "小风音乐"
     },
     "electronFuses": {
       "enableEmbeddedAsarIntegrityValidation": true,

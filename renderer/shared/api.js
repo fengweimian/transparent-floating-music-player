@@ -107,16 +107,29 @@
   }
 
   // ---------- 音频地址（主进程搜索返回的 url 为空，播放前需单独获取）----------
-  async function url(id, server) {
-    if (!id) return "";
+  // ⚠️ v3.6.0：新增 urlInfo —— 返回 { url, message }，把主进程的「失败原因分类」
+  //    （VIP 受限 / 需登录 / 网络异常 / 代理故障）透传到 UI，替代千篇一律的"换一首试试"
+  async function urlInfo(id, server, name, artist) {
+    if (!id) return { url: "", reason: "no_id", message: "该歌曲缺少 ID，无法解析播放地址" };
     if (isElectron) {
       try {
-        const r = await window.electronAPI.music.url(id, server);
-        return (r && r.url) || "";
-      } catch (e) { return ""; }
+        const r = await window.electronAPI.music.url(id, server, name || "", artist || "");
+        if (r && r.url) return { url: r.url, via: r.via || "" };
+        return {
+          url: "",
+          reason: (r && r.reason) || "unknown",
+          message: (r && r.message) || "获取音频失败，请换一首试试",
+        };
+      } catch (e) {
+        return { url: "", reason: "ipc_error", message: "获取音频失败：" + ((e && e.message) || "未知错误") };
+      }
     }
-    // 浏览器 fallback：Meting 搜索已带签名 url，直接返回空由调用方用 song.url
-    return "";
+    return { url: "", reason: "browser", message: "浏览器模式无法获取播放地址（请使用桌面版）" };
+  }
+
+  async function url(id, server, name, artist) {
+    const r = await urlInfo(id, server, name, artist);
+    return r.url || "";
   }
 
   // ---------- 封面补全（酷狗 getSongInfo / 歌曲宝详情页 mp3_cover / QQ picId 构造）----------
@@ -177,6 +190,7 @@
     search,
     lyric,
     url,
+    urlInfo,
     pic,
     playlist,
     importPlaylist,

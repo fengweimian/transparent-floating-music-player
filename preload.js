@@ -48,7 +48,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     gqhSearch: (keyword) => ipcRenderer.invoke("music:gqhSearch", keyword),
     gqbSearch: (keyword) => ipcRenderer.invoke("music:gqbSearch", keyword),
     songDetail: (id, server) => ipcRenderer.invoke("music:songDetail", id, server),
-    url: (id, server) => ipcRenderer.invoke("music:url", id, server),
+    // ⚠️ v3.6.0：name/artist 用于主进程跨源按名匹配（QQ/网易云 VIP 歌靠它找可播源）
+    url: (id, server, name, artist) => ipcRenderer.invoke("music:url", id, server, name || "", artist || ""),
     lyric: (id, server) => ipcRenderer.invoke("music:lyric", id, server),
     pic: (id, server, picId) => ipcRenderer.invoke("music:pic", id, server, picId),
     playlist: (id, server) => ipcRenderer.invoke("music:playlist", id, server),
@@ -60,6 +61,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   shell: {
     showItemInFolder: (filePath) => ipcRenderer.invoke("shell:showItemInFolder", filePath),
+  },
+  // ⚠️ v3.6.0：跨域文本抓取（主进程代取，取代渲染层裸 fetch —— webSecurity 已恢复 true）
+  net: {
+    getText: (url, referer) => ipcRenderer.invoke("net:getText", url, referer),
   },
   playlists: {
     list: () => ipcRenderer.invoke("playlists:list"),

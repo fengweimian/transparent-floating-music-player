@@ -289,10 +289,11 @@ class MusicPlayer {
       return;
     }
     const seq = ++this._loadSeq;
-    const result = { url: await XFApi.url(track.id, track.server) };
+    // ⚠️ v3.6.0：改用 urlInfo —— 拿主进程分类后的失败原因（VIP/需登录/网络/代理故障）而非统一文案
+    const result = await XFApi.urlInfo(track.id, track.server, track.name, track.artist);
     if (seq !== this._loadSeq) return; // 已被更新的切歌请求取代
-    if (!result || !result.url) {
-      this._emit("error", { message: "无法获取播放地址" });
+    if (!result.url) {
+      this._emit("error", { message: result.message || "无法获取播放地址" });
       return;
     }
     this.currentIndex = index;
@@ -312,10 +313,10 @@ class MusicPlayer {
     this.currentTrack = track;
 
     if (track.type === "online") {
-      const result = { url: await XFApi.url(track.id, track.server) };
+      const result = await XFApi.urlInfo(track.id, track.server, track.name, track.artist);
       if (seq !== this._loadSeq) return;
-      if (!result || !result.url) {
-        this._emit("error", { message: "无法获取播放地址" });
+      if (!result.url) {
+        this._emit("error", { message: result.message || "无法获取播放地址" });
         return;
       }
       this.audio.src = result.url;
@@ -337,10 +338,11 @@ class MusicPlayer {
     this.currentTrack = track;
 
     if (track.type === "online") {
-      const result = { url: await XFApi.url(track.id, track.server) };
+      // ⚠️ v3.6.0：改用 urlInfo —— 拿主进程分类后的失败原因（VIP/需登录/网络/代理故障）
+      const result = await XFApi.urlInfo(track.id, track.server, track.name, track.artist);
       if (seq !== this._loadSeq) return; // 竞态：已被更新的切歌取代
-      if (!result || !result.url) {
-        this._emit("error", { message: "无法获取播放地址" });
+      if (!result.url) {
+        this._emit("error", { message: result.message || "无法获取播放地址" });
         return;
       }
       this.audio.src = result.url;

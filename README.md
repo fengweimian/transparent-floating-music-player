@@ -18,6 +18,7 @@
 
 ### 🎵 播放核心
 - **多来源搜索**：网易云 / QQ 音乐 / 酷狗 / 歌曲宝 多源切换
+- **自动跨源兜底**：某源拿不到播放地址时，自动按「歌名 + 歌手」到网易云精确匹配同曲（严格同名同歌手，不会误播翻唱），失败原因会明确区分「需登录 / VIP 受限 / 网络异常」
 - **歌单导入**：支持网易云、QQ 音乐歌单链接（含 QQ 短链自动展开）
 - **自定义歌单**：新建 / 删除 / 加歌 / 移除 / 重命名
 - **播放队列**：顺序 / 随机 / 单曲循环，队列可移除、插队（下一曲）、加歌单、下载
@@ -78,7 +79,7 @@
 
 从 [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases) 下载最新版安装包：
 
-- [TransparentMusicPlayer-Setup-3.5.9.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.5.9/TransparentMusicPlayer-Setup-3.5.9.exe) —— NSIS 安装包（推荐）
+- [TransparentMusicPlayer-Setup-3.6.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.6.0/TransparentMusicPlayer-Setup-3.6.0.exe) —— NSIS 安装包（推荐）
 
 > 仅支持 **Windows x64**。安装时可自定义安装目录。
 

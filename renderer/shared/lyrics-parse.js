@@ -168,5 +168,40 @@
     return isYrcFormat(s) ? parseYrc(s) : parseQrc(s);
   }
 
-  window.XFLyrics = { parseLrc, parseQrc, parseYrc, parseCharLines, isYrcFormat, attachChars };
+  // ---------- ⚠️ v3.6.0：统一入口「LRC + 逐字 → 行数组」（三模板共用，避免同一 bug 改三遍）----------
+  // 原先 classic(lyrics.js) / template2 / template3 各写一份"解析标准 LRC → 按格式决定
+  // 替换(QRC) 还是挂载(YRC)"的分支，逻辑等价但易漏改（v3.5.4/v3.5.9 均因三份不同步出过问题）。
+  // 这里收敛为唯一真源。
+  // opts.timeUnit: "ms"（template2/3 默认）| "s"（classic 渲染层）
+  // opts.trans:    行内翻译是否拼回文本（classic 行为）
+  function buildLines(lrcText, charText, opts) {
+    const o = opts || {};
+    const toSec = o.timeUnit === "s";
+    const useTrans = !!o.trans;
+    const conv = (ms) => (toSec ? ms / 1000 : Math.round(ms));
+    const label = (l) => (useTrans && l.trans ? l.text + "(" + l.trans + ")" : l.text);
+
+    const linesMs = parseLrc(lrcText);
+    let lines = linesMs.map((l) => ({ time: conv(l.time), text: label(l) }));
+    if (!charText) return lines;
+
+    const charLines = parseCharLines(charText);
+    if (!charLines || !charLines.length) return lines;
+
+    if (isYrcFormat(charText)) {
+      // YRC（网易云，时间戳在字前）：行不自包含，必须与 LRC 行「顺序 + 文本」匹配后挂载
+      if (!lines.length) return lines;
+      attachChars(linesMs, charLines); // 内部按毫秒比较，必须在 linesMs 上执行
+      return linesMs.map((l) => ({ time: conv(l.time), text: label(l), chars: l.chars }));
+    }
+    // QRC（QQ 音乐，字在括号前、行头自带时间）→ 直接替换，无需 LRC 匹配
+    // 注意：QQ 的 lyric 字段本身就是 QRC → parseLrc 得到 0 行，据此进入本分支
+    return charLines.map((cl) => ({
+      time: toSec ? cl.start : Math.round(cl.start * 1000),
+      text: cl.chars.map((c) => c.text).join(""),
+      chars: cl.chars,
+    }));
+  }
+
+  window.XFLyrics = { parseLrc, parseQrc, parseYrc, parseCharLines, isYrcFormat, attachChars, buildLines };
 })();

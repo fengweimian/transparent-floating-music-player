@@ -181,6 +181,9 @@
 
   // ============ 播放器核心（本地+在线统一队列）============
   const audio = new Audio();
+  // ⚠️ v3.6.0：必须声明 CORS 匿名，否则跨域音频被判定 tainted →
+  //    createMediaElementSource 后 getByteFrequencyData 恒为 0（频谱全空）。主进程已对 media 注入 ACAO。
+  audio.crossOrigin = "anonymous";
   let queue = [];          // 播放队列：{type:'local'|'online', ...}
   let currentIdx = -1;
   let playing = false;
@@ -298,9 +301,9 @@
           initSpectrum();
           if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
           if (song.type === "online" && !song.url && song.id && song.server) {
-            XFApi.url(song.id, song.server).then((u) => {
-              if (u) {
-                song.url = u;
+            XFApi.urlInfo(song.id, song.server, song.name, song.artist).then((r) => {
+              if (r.url) {
+                song.url = r.url;
                 if (curSong() === song) { startPlay(song); applyRestoreSeek(); }
               }
             }).catch(() => {});
@@ -429,12 +432,13 @@
     forwardDl({ type: "trackchange", track: dlTrack(song) });
     // 在线歌曲：主进程搜索返回的 url 为空 → 先拉取音频地址再播放（静默，不弹提示）
     if (song.type === "online" && !song.url && song.id && song.server) {
-      XFApi.url(song.id, song.server).then((u) => {
-        if (u) {
-          song.url = u;
+      XFApi.urlInfo(song.id, song.server, song.name, song.artist).then((r) => {
+        if (r.url) {
+          song.url = r.url;
           if (curSong() === song) startPlay(song);
         } else {
-          showFeedback("获取音频失败，请换一首试试");
+          // ⚠️ v3.6.0：展示主进程给出的具体原因（VIP/需登录/网络/代理故障），不再一律"换一首试试"
+          showFeedback(r.message || "获取音频失败，请换一首试试");
           forwardDl({ type: "playstate", playing: false });
         }
       }).catch(() => {
@@ -1950,31 +1954,18 @@
         }
       }
       if (!text && song.lrcUrl) {
-        const res = await fetch(song.lrcUrl);
-        text = await res.text();
+        // ⚠️ v3.6.0：webSecurity 已恢复 true，渲染层裸 fetch 跨域会被 CORS 拦 → 走主进程代取
+        if (XFStore.isElectron && window.electronAPI && window.electronAPI.net) {
+          text = (await window.electronAPI.net.getText(song.lrcUrl)) || "";
+        } else {
+          const res = await fetch(song.lrcUrl);
+          text = await res.text();
+        }
       }
       if (!text) { song._lines = []; return; }
       song.lrc = text;
-      song._lines = XFLyrics.parseLrc(text);
-      // ⚠️ QQ 音乐接口返回的 lyric 字段本身是 QRC 格式（[ms,ms]字(偏移,时长)字...），
-      //    标准 LRC 解析（parseLrc）解析不出 0 行 → 直接用逐字行替换（含逐字时间戳）
-      if (!song._lines.length && song.yrc) {
-        // ⚠️ v3.5.4：用 parseCharLines 按格式识别（YRC 主格式=行头后跟 "(" → parseYrc；
-        //    QRC=行头后是文本 → parseQrc）。不能用 parseQrc(...)||parseYrc(...) 或 .length 回退——
-        //    parseQrc 对 YRC 主格式会错位解析出数据（字时间=下一字时间戳）且空数组是 truthy
-        const charLines = XFLyrics.parseCharLines(song.yrc);
-        if (charLines && charLines.length) {
-          song._lines = charLines.map((cl) => ({
-            time: Math.round(cl.start * 1000),
-            text: cl.chars.map((c) => c.text).join(""),
-            chars: cl.chars,
-          }));
-        }
-      } else if (song.yrc) {
-        // 网易云 YRC：标准 LRC 行 + 逐字挂载（parseCharLines 已按格式正确识别）
-        const charLines = XFLyrics.parseCharLines(song.yrc);
-        XFLyrics.attachChars(song._lines, charLines);
-      }
+      // ⚠️ v3.6.0：LRC + 逐字（QRC/YRC）合并逻辑统一走 XFLyrics.buildLines（三模板共用唯一真源）
+      song._lines = XFLyrics.buildLines(text, song.yrc, { timeUnit: "ms" });
       // 若当前正在播放这首，刷新歌词显示
       if (curSong() === song) {
         lastLyricIdx = -1;

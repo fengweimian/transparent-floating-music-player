@@ -83,37 +83,10 @@ class Lyrics {
   // 本模板渲染层依赖「秒」单位，故 time 统一 /1000 换算；
   // 行内翻译原样拼回文本（与旧 parseLines 行为一致，tlyric 翻译另走 tlines）。
   parse(raw, traw = "", yrc = "") {
-    const linesMs = XFLyrics.parseLrc(raw);
-    const toSeconds = (l) => ({
-      time: l.time / 1000,
-      text: l.trans ? l.text + "(" + l.trans + ")" : l.text,
-    });
-    this.lines = linesMs.map(toSeconds);
+    // ⚠️ v3.6.0：LRC + 逐字（QRC/YRC）合并逻辑统一走 XFLyrics.buildLines（与 template2/3 同一份实现）
+    // 本模板渲染层依赖「秒」单位（timeUnit:"s"），行内翻译拼回文本（trans:true）。
+    this.lines = XFLyrics.buildLines(raw, yrc, { timeUnit: "s", trans: true });
     this.tlines = traw ? XFLyrics.parseLrc(traw).map((l) => ({ time: l.time / 1000, text: l.text })) : [];
-    // 逐字歌词：自动识别 QQ 音乐 QRC（[ms,ms]字(偏移,时长)） vs 网易云 YRC
-    // ⚠️ v3.5.4：parseCharLines 按格式识别（isYrcFormat）——parseQrc 对 YRC 主格式会错位解析，
-    //    不能靠"parseQrc 返回空"回退判断格式
-    if (yrc) {
-      const lyricLines = XFLyrics.parseCharLines(yrc);
-      if (lyricLines.length > 0) {
-        if (XFLyrics.isYrcFormat(yrc)) {
-          // YRC（网易云，时间戳在前）：需与 LRC 行匹配挂载（在毫秒 lines 上执行）
-          XFLyrics.attachChars(linesMs, lyricLines);
-          this.lines = linesMs.map((l) => ({
-            time: l.time / 1000,
-            text: l.trans ? l.text + "(" + l.trans + ")" : l.text,
-            chars: l.chars,
-          }));
-        } else {
-          // QRC（QQ 音乐，字在括号前，自包含行信息）→ 直接替换 this.lines，无需 LRC 匹配
-          this.lines = lyricLines.map((l) => ({
-            time: l.start,
-            text: l.chars.map((c) => c.text).join(""),
-            chars: l.chars,
-          }));
-        }
-      }
-    }
   }
 
   // 二分查找 time 时刻对应行（返回索引，找不到返回 -1）
