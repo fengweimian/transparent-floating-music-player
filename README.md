@@ -57,8 +57,18 @@
 - **酷狗播放**：免费歌曲直接完整播放；付费/VIP 歌曲匿名仅 60 秒试听（官方限制）
 - 登录入口同时体现在**设置页**（可查看登录状态 / 退出）
 
+### 📺 MV 台（模板四）
+- **歌曲 MV 播放**：自动在**网易云 / QQ 音乐 / 酷狗**三源中查找该歌曲的官方 MV，命中即播（大画面 1080P/720P）
+- **MV 原声**：MV 播放时自动暂停歌曲音轨，用 MV 自带音轨出声，音画同步；退出 MV 即回到歌曲音轨
+- **三源互补**：当前源没有就去另外两个来源找（按「歌名 + 歌手」严格匹配），实测覆盖率接近全覆盖
+- **多清晰度切换**：网易云自带 240P/480P/720P/1080P 多档，可随时切换
+- **沉浸式界面**：静置 3 秒自动淡出全部 UI 并隐藏光标，鼠标一动立即恢复；点「沉浸」按钮或按 `H` 进入纯净模式（全屏只剩 MV 画面），`Esc` 或双击画面退出
+- **无 MV 兜底**：找不到 MV 时显示专辑封面 + 三源说明，歌曲照常播放，可一键「切回歌词界面」
+- ⚠️ MV 播放地址带时效签名，每次播放实时获取（通常 1~3 秒）
+
 ### 🎨 视觉与背景
 - **全透明无边框悬浮窗**，桌面任意位置放置
+- **四套界面模板**：经典 / 新模板·全屏极简 / 歌词剧场 / MV 台（设置里一键切换，切换自动续播）
 - **背景幻灯片**：图片 / 视频，切换间隔可调，支持预加载与淡入淡出
 - 专辑封面模糊背景
 
@@ -79,7 +89,7 @@
 
 从 [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases) 下载最新版安装包：
 
-- [TransparentMusicPlayer-Setup-3.6.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.6.0/TransparentMusicPlayer-Setup-3.6.0.exe) —— NSIS 安装包（推荐）
+- [TransparentMusicPlayer-Setup-3.7.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.7.0/TransparentMusicPlayer-Setup-3.7.0.exe) —— NSIS 安装包（推荐）
 
 > 仅支持 **Windows x64**。安装时可自定义安装目录。
 

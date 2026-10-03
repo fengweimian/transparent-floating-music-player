@@ -56,8 +56,18 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 - **Kugou playback**: free songs play fully; paid/VIP songs get only a 60s preview anonymously (official limit)
 - Login state also shown in **Settings page** (view status / logout)
 
+### 📺 MV Stage (Template 4)
+- **Music video playback**: automatically looks up the song's official MV across **NetEase Cloud / QQ Music / Kugou** and plays it on a large canvas (1080P/720P)
+- **MV original audio**: the song track pauses while the MV plays its own audio track (perfect A/V sync); returns to the song track when MV ends
+- **Three-source fallback**: if the current source has no MV, the other two are searched by exact "title + artist" match
+- **Quality switching**: NetEase MVs offer 240P/480P/720P/1080P tiers you can switch on the fly
+- **Immersive UI**: after ~3s idle, all UI fades out and the cursor hides — move the mouse to bring it back. Press `H` (or the button) for pure mode (only the MV remains); `Esc` or double-click to exit
+- **No-MV fallback**: shows album art with a three-source notice, song keeps playing, one click to switch back to the lyrics view
+- ⚠️ MV URLs carry time-limited signatures and are fetched fresh on every playback (usually 1–3s)
+
 ### 🎨 Visual & Background
 - **Transparent borderless floating window**, draggable anywhere on the desktop
+- **Four UI templates**: Classic / New Minimal Fullscreen / Lyrics Theater / MV Stage (switch in Settings, playback resumes automatically)
 - **Background slideshow**: images / videos, adjustable interval, preloading & cross-fade
 - Blurred album-art background
 
@@ -78,7 +88,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- [TransparentMusicPlayer-Setup-3.6.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.6.0/TransparentMusicPlayer-Setup-3.6.0.exe) — NSIS installer (recommended)
+- [TransparentMusicPlayer-Setup-3.7.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.7.0/TransparentMusicPlayer-Setup-3.7.0.exe) — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 

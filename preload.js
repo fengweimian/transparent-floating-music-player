@@ -52,6 +52,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     url: (id, server, name, artist) => ipcRenderer.invoke("music:url", id, server, name || "", artist || ""),
     lyric: (id, server) => ipcRenderer.invoke("music:lyric", id, server),
     pic: (id, server, picId) => ipcRenderer.invoke("music:pic", id, server, picId),
+    // ⚠️ v3.7.0：MV 地址解析（三源 + 跨源按名兜底）；返回 {ok,url,source,sourceName,qualities,quality,...}
+    mv: (id, server, name, artist) => ipcRenderer.invoke("music:mv", id, server, name || "", artist || ""),
     playlist: (id, server) => ipcRenderer.invoke("music:playlist", id, server),
     importPlaylist: (url) => ipcRenderer.invoke("music:importPlaylist", url),
     download: (id, server, name, artist) => ipcRenderer.invoke("music:download", id, server, name, artist),

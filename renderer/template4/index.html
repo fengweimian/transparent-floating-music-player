@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>小风音乐 · 模板三（静态预览）</title>
+<title>小风音乐 · MV 台（模板四）</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -606,9 +606,170 @@
     max-width: 24vw;
   }
   .track-tag .tt-artist { color: rgba(255,255,255,0.6); font-size: 12px; }
+
+  /* ================= 模板四 · MV 台（v3.7.0）================= */
+  /* MV 为主视觉：歌词列 / 唱片机 / 幻灯片壁纸在模板四中永久隐藏（逻辑保留，不参与渲染） */
+  body.mv-ui .lrc-col,
+  body.mv-ui .deck,
+  body.mv-ui #bg,
+  body.mv-ui .bg-shade { display: none !important; }
+  /* MV 台底色：深色沉浸底，不与 MV 画面争夺注意力 */
+  body.mv-ui .bg-media {
+    background:
+      radial-gradient(1200px 700px at 18% 0%, rgba(var(--a1), 0.15), transparent 60%),
+      radial-gradient(1000px 700px at 88% 100%, rgba(var(--a2), 0.13), transparent 62%),
+      linear-gradient(160deg, #0b0d16 0%, #07080d 100%);
+  }
+
+  .mv-wrap {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: center;
+    /* 设计稿 1280×720 下画面 1080×634（≈84% 宽 × 88% 高），换算为相对视口 */
+    padding: 7.2vh 7.8vw 3.6vh;
+  }
+  .mv-box {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 18px; overflow: hidden;
+    background: #05060a;
+    border: 1px solid rgba(255,255,255,0.13);
+    box-shadow: 0 22px 64px rgba(0,0,0,0.55);
+  }
+  #mv-video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: contain; background: #05060a;
+    opacity: 0; transition: opacity 0.4s ease;
+  }
+  body.mv-playing #mv-video { opacity: 1; }
+
+  /* 画面内左上角：来源 / 画质标记 */
+  .mv-src {
+    position: absolute; top: 16px; left: 18px; z-index: 4;
+    display: flex; align-items: center; gap: 7px;
+    height: 26px; padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.46);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    font-size: 11.5px; letter-spacing: 0.5px; color: rgba(255,255,255,0.86);
+    transition: opacity 0.35s;
+  }
+  .mv-dot { width: 6px; height: 6px; border-radius: 50%; background: #e24b4a; box-shadow: 0 0 8px rgba(226,75,74,0.8); }
+  body.mv-loading .mv-src, body.mv-empty .mv-src { display: none; }
+
+  /* 画面内底部：控制条 */
+  .mv-bottom {
+    position: absolute; left: 20px; right: 20px; bottom: 18px; z-index: 4;
+    transition: opacity 0.35s, transform 0.35s;
+  }
+  .mv-ctrl {
+    display: flex; align-items: center; gap: 13px;
+    height: 56px; padding: 0 16px;
+    border-radius: 14px;
+    background: rgba(10,12,20,0.6);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(22px) saturate(1.3); -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  }
+  body.mv-loading .mv-ctrl, body.mv-empty .mv-ctrl { opacity: 0.2; pointer-events: none; }
+
+  .mv-play {
+    flex: none; width: 36px; height: 36px; border-radius: 50%; border: none;
+    background: #fff; color: #0b0d14; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s;
+  }
+  .mv-play:hover { transform: scale(1.06); }
+  .mv-prog {
+    flex: 1; position: relative; height: 4px; border-radius: 3px;
+    background: rgba(255,255,255,0.18); cursor: pointer;
+  }
+  .mv-prog::before { content: ""; position: absolute; inset: -9px 0; }   /* 扩大点击热区 */
+  .mv-prog-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; background: rgb(var(--a1)); }
+  .mv-prog-dot {
+    position: absolute; left: 0; top: 50%; width: 11px; height: 11px;
+    margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 0 3px rgba(var(--a1), 0.28);
+  }
+  .mv-time { flex: none; font-size: 12px; color: rgba(255,255,255,0.66); font-variant-numeric: tabular-nums; }
+  .mv-btn {
+    flex: none; height: 30px; min-width: 30px; padding: 0 10px;
+    border-radius: 9px; border: 1px solid rgba(255,255,255,0.13);
+    background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7);
+    font-size: 11.5px; font-family: var(--ui-font); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    transition: 0.16s;
+  }
+  .mv-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
+  .mv-btn.on { color: rgb(var(--a1)); border-color: rgba(var(--a1),0.5); background: rgba(var(--a1),0.12); }
+
+  /* 画质弹层 */
+  #mv-qmenu {
+    position: fixed; z-index: 620; display: none; flex-direction: column; gap: 2px;
+    min-width: 118px; padding: 6px;
+    background: rgba(var(--panel), 0.94);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+    box-shadow: 0 14px 36px rgba(0,0,0,0.55);
+  }
+  #mv-qmenu.open { display: flex; }
+  #mv-qmenu .q-item {
+    padding: 7px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+    color: rgba(255,255,255,0.78); display: flex; justify-content: space-between; gap: 14px;
+  }
+  #mv-qmenu .q-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  #mv-qmenu .q-item.on { color: rgb(var(--a1)); }
+  #mv-qmenu .q-size { opacity: 0.45; font-size: 11px; }
+
+  /* 覆盖层：加载中 / 暂无 MV */
+  .mv-ov {
+    position: absolute; inset: 0; z-index: 3; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    padding: 40px; text-align: center;
+    background: linear-gradient(170deg, rgba(13,16,32,0.5), rgba(5,6,10,0.72));
+  }
+  body.mv-loading .mv-ov-load { display: flex; }
+  body.mv-empty .mv-ov-empty { display: flex; }
+  .mv-spin {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.14); border-top-color: rgb(var(--a1));
+    animation: mvspin 0.9s linear infinite;
+  }
+  @keyframes mvspin { to { transform: rotate(360deg); } }
+  .mv-ov-title { font-size: 15px; font-weight: 500; letter-spacing: 1px; }
+  .mv-ov-sub { font-size: 12.5px; line-height: 1.75; color: rgba(255,255,255,0.45); max-width: 470px; }
+  .mv-cover {
+    width: 150px; height: 150px; border-radius: 14px; overflow: hidden; position: relative;
+    background: linear-gradient(150deg, rgba(var(--a1),0.55), rgba(var(--a2),0.5));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: rgba(255,255,255,0.7);
+    box-shadow: 0 16px 44px rgba(0,0,0,0.55);
+  }
+  .mv-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .mv-ov-btn {
+    margin-top: 2px; height: 34px; padding: 0 20px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.07);
+    color: #fff; font-size: 12.5px; font-family: var(--ui-font); cursor: pointer;
+    transition: 0.16s;
+  }
+  .mv-ov-btn:hover { background: rgba(255,255,255,0.15); }
+
+  /* 沉浸：静置 → 淡出所有 UI；纯净模式 → 永不显示（Esc / 双击退出） */
+  .track-tag, .corner { transition: opacity 0.35s; }
+  body.imm .track-tag, body.imm .corner, body.imm .mv-src, body.imm .mv-bottom {
+    opacity: 0; pointer-events: none;
+  }
+  body.imm { cursor: none; }
+  body.pure .track-tag, body.pure .corner, body.pure .mv-src, body.pure .mv-bottom {
+    opacity: 0 !important; pointer-events: none !important;
+  }
+  body.pure { cursor: none; }
+  /* 面板 / 菜单打开时强制显示 UI（否则找不到关闭入口） */
+  body.ui-lock .track-tag, body.ui-lock .corner, body.ui-lock .mv-bottom, body.ui-lock .mv-src {
+    opacity: 1 !important; pointer-events: auto !important;
+  }
+  body.ui-lock { cursor: default; }
 </style>
 </head>
-<body class="playing">
+<body class="playing mv-ui">
 
 <!-- 背景层：幻灯片img/video 双缓冲（与template2 同 id）-->
 <div class="bg-media" id="bg-media"></div>
@@ -619,6 +780,59 @@
   <video class="slide-video" id="slide-video-front" muted playsinline preload="auto"></video>
 </div>
 <div class="bg-shade"></div>
+
+<!-- ===== 模板四 · MV 台主视觉（v3.7.0）：MV 原声播放，暂停歌曲音轨 ===== -->
+<div class="mv-wrap" id="mv-wrap">
+  <div class="mv-box" id="mv-box">
+    <video id="mv-video" playsinline preload="metadata"></video>
+
+    <!-- 画面内：来源 + 画质 -->
+    <div class="mv-src" id="mv-src">
+      <span class="mv-dot"></span>
+      <span id="mv-src-text">MV 原声</span>
+    </div>
+
+    <!-- 画面内：控制条（静置自动淡出） -->
+    <div class="mv-bottom" id="mv-bottom">
+      <div class="mv-ctrl">
+        <button class="mv-play" id="mv-play" title="播放 / 暂停">
+          <svg id="mv-icon-play" width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.3v13.4L19 12z"/></svg>
+          <svg id="mv-icon-pause" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6.5" y="5" width="3.6" height="14" rx="1.2"/><rect x="13.9" y="5" width="3.6" height="14" rx="1.2"/></svg>
+        </button>
+        <div class="mv-prog" id="mv-prog">
+          <div class="mv-prog-fill" id="mv-prog-fill"></div>
+          <div class="mv-prog-dot" id="mv-prog-dot"></div>
+        </div>
+        <span class="mv-time"><span id="mv-cur">0:00</span> / <span id="mv-total">0:00</span></span>
+        <button class="mv-btn" id="mv-quality" title="清晰度" style="display:none">720P</button>
+        <button class="mv-btn" id="mv-pure" title="沉浸模式（Esc 退出）">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 加载中 -->
+    <div class="mv-ov mv-ov-load">
+      <div class="mv-spin"></div>
+      <div class="mv-ov-title">正在获取 MV 地址</div>
+      <div class="mv-ov-sub">已在网易云 / QQ 音乐 / 酷狗三个来源中查找这首歌的官方 MV。<br>MV 播放地址带时效签名，每次播放都实时获取，通常需要 1～3 秒。</div>
+    </div>
+
+    <!-- 暂无 MV -->
+    <div class="mv-ov mv-ov-empty">
+      <div class="mv-cover" id="mv-cover">封面</div>
+      <div class="mv-ov-title" id="mv-empty-title">这首歌没有 MV</div>
+      <div class="mv-ov-sub" id="mv-empty-sub">已尝试网易云 / QQ 音乐 / 酷狗三个来源，均未找到该歌曲的官方 MV。</div>
+      <div style="display:flex;gap:10px">
+        <button class="mv-ov-btn" id="mv-retry">重新查找</button>
+        <button class="mv-ov-btn" id="mv-to-lyrics">切回歌词界面</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 画质选择弹层（放 mv-box 外，避免被 overflow:hidden 裁切） -->
+<div id="mv-qmenu"></div>
 
 <!-- 左上角曲目-->
 <div class="track-tag" id="track-tag">

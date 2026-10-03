@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小风音乐 · MV 台布局 Demo v1</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --a1: 108, 140, 255;
+  --a2: 126, 100, 255;
+  --ui-font: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  --txt: #fff;
+  --txt2: rgba(255, 255, 255, .66);
+  --txt3: rgba(255, 255, 255, .40);
+  --line: rgba(255, 255, 255, .10);
+  --line2: rgba(255, 255, 255, .18);
+  --glass: rgba(13, 14, 24, .58);
+  --radius: 16px;
+}
+
+html, body { height: 100%; }
+
+body {
+  background: #0a0c12;
+  font-family: var(--ui-font);
+  color: var(--txt);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+  min-height: 100vh;
+  overflow: auto;
+}
+
+/* ===== 舞台：模拟 16:9 全屏悬浮窗（外框仅用于展示，真实应用无边框） ===== */
+.frame {
+  width: 1280px;
+  height: 720px;
+  flex: none;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .55);
+  transform-origin: center center;
+}
+.stage { position: absolute; inset: 0; width: 1280px; height: 720px; }
+
+/* 模拟桌面壁纸（真实应用此处是透明，直接透出用户桌面） */
+.wall {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 90% at 16% 10%, #26304f 0%, transparent 58%),
+    radial-gradient(100% 80% at 84% 90%, #3b2a52 0%, transparent 60%),
+    linear-gradient(160deg, #10131f 0%, #0a0c14 100%);
+}
+.wall::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(60% 50% at 50% 45%, rgba(255,255,255,.045), transparent 70%);
+}
+
+.app { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 0 0 0 0; }
+
+/* ===== 顶部：歌名 / 歌手 / 窗口控制 ===== */
+.top {
+  flex: none;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 26px;
+}
+.meta { display: flex; align-items: baseline; gap: 9px; }
+.tt-name { font-size: 19px; font-weight: 500; letter-spacing: .3px; }
+.sep { color: var(--txt3); font-size: 14px; }
+.tt-artist { font-size: 14px; color: var(--txt2); }
+.badge {
+  margin-left: 6px;
+  font-size: 11px;
+  color: rgb(var(--a1));
+  border: 1px solid rgba(var(--a1), .45);
+  background: rgba(var(--a1), .10);
+  border-radius: 20px;
+  padding: 2px 9px;
+  align-self: center;
+}
+
+.win { display: flex; gap: 8px; }
+.wbtn {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--txt2);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: .18s;
+}
+.wbtn:hover { background: rgba(255, 255, 255, .10); color: #fff; }
+.wbtn.close:hover { background: #d9534f; border-color: #d9534f; }
+
+/* ===== MV 主视觉 ===== */
+.mv-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 100px 20px;
+}
+.mv {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #05060a;
+  border: 1px solid var(--line2);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+}
+/* 画面占位（真实应用此处是 video 元素） */
+.mv-canvas {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(70% 55% at 50% 42%, rgba(var(--a1), .16) 0%, transparent 68%),
+    radial-gradient(50% 40% at 78% 78%, rgba(var(--a2), .13) 0%, transparent 70%),
+    linear-gradient(170deg, #0d1020 0%, #05060a 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.mv-hint { font-size: 13px; color: rgba(255, 255, 255, .17); letter-spacing: 1px; }
+
+/* 画面上角：来源标记 */
+.mv-src {
+  position: absolute; top: 16px; left: 18px;
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; color: var(--txt2);
+  background: rgba(0, 0, 0, .42);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 4px 11px;
+  backdrop-filter: blur(10px);
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #E24B4A; }
+
+/* 画面内底部：歌词 + 控制条 */
+.mv-bottom {
+  position: absolute;
+  left: 16px; right: 16px; bottom: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.lrc {
+  text-align: center;
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: .5px;
+  color: rgba(255, 255, 255, .93);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .85), 0 0 30px rgba(0, 0, 0, .6);
+}
+.ctrl {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 58px;
+  padding: 0 16px;
+  border-radius: 13px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(22px) saturate(1.3);
+}
+.play {
+  flex: none;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: #0b0d14;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.play svg { width: 14px; height: 14px; }
+.prog {
+  flex: 1;
+  position: relative;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .18);
+  cursor: pointer;
+}
+.prog-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 28%;
+  border-radius: 3px;
+  background: rgb(var(--a1));
+}
+.prog-dot {
+  position: absolute; left: 28%; top: 50%;
+  width: 11px; height: 11px;
+  margin-left: -5.5px; margin-top: -5.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(var(--a1), .28);
+}
+.time { flex: none; font-size: 12px; color: var(--txt2); font-variant-numeric: tabular-nums; }
+.cbtn {
+  flex: none;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .05);
+  color: var(--txt2);
+  font-size: 11.5px;
+  font-family: var(--ui-font);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: .18s;
+}
+.cbtn:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.cbtn svg { width: 13px; height: 13px; }
+.cbtn.q-on { color: rgb(var(--a1)); border-color: rgba(var(--a1), .5); background: rgba(var(--a1), .12); }
+
+/* ===== 覆盖态：加载中 / 暂无 MV ===== */
+.overlay {
+  position: absolute; inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: linear-gradient(170deg, rgba(13,16,32,.86), rgba(5,6,10,.92));
+  backdrop-filter: blur(6px);
+}
+.spinner {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .14);
+  border-top-color: rgb(var(--a1));
+  animation: spin .9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ov-title { font-size: 15px; font-weight: 500; }
+.ov-sub { font-size: 12.5px; color: var(--txt3); max-width: 420px; text-align: center; line-height: 1.7; }
+
+/* 暂无 MV：封面 + 提示 */
+.empty-cover {
+  width: 148px; height: 148px;
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(var(--a1), .55), rgba(var(--a2), .5));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
+  font-size: 12px; color: rgba(255, 255, 255, .7);
+}
+.ov-btn {
+  margin-top: 4px;
+  height: 34px; padding: 0 18px;
+  border-radius: 9px;
+  border: 1px solid var(--line2);
+  background: rgba(255, 255, 255, .06);
+  color: var(--txt);
+  font-size: 12.5px; font-family: var(--ui-font);
+  cursor: pointer;
+}
+.ov-btn:hover { background: rgba(255, 255, 255, .13); }
+
+/* 状态切换 */
+.stage.s-playing .ov-load, .stage.s-playing .ov-empty { display: none; }
+.stage.s-loading .ov-load { display: flex; }
+.stage.s-loading .ov-empty { display: none; }
+.stage.s-empty .ov-empty { display: flex; }
+.stage.s-empty .ov-load { display: none; }
+.stage.s-empty .ctrl, .stage.s-empty .lrc { display: none; }
+.stage.s-loading .ctrl, .stage.s-loading .lrc { opacity: .25; pointer-events: none; }
+
+/* ===== 演示控制条（真实应用不存在） ===== */
+.demo-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #14161f;
+  border: 1px solid #232634;
+  font-size: 12.5px;
+  color: #9aa0b4;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 1280px;
+}
+.demo-bar b { color: #e6e9f2; font-weight: 500; }
+.demo-btn {
+  height: 30px; padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid #2b2f3f;
+  background: #1b1e2a;
+  color: #b9c0d4;
+  font-size: 12.5px; font-family: var(--ui-font);
+  cursor: pointer;
+  transition: .16s;
+}
+.demo-btn:hover { border-color: #3d4459; }
+.demo-btn.on { background: rgb(var(--a1)); border-color: rgb(var(--a1)); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame">
+  <div class="stage s-playing" id="stage">
+
+    <div class="wall"></div>
+
+    <div class="app">
+      <!-- 顶部 -->
+      <header class="top">
+        <div class="meta">
+          <div class="tt-name" id="songName">演员</div>
+          <span class="sep">·</span>
+          <span class="tt-artist" id="songArtist">薛之谦</span>
+          <span class="badge">MV 原声</span>
+        </div>
+        <div class="win">
+          <button class="wbtn" title="最小化">−</button>
+          <button class="wbtn close" title="关闭">×</button>
+        </div>
+      </header>
+
+      <!-- MV 主视觉 -->
+      <main class="mv-wrap">
+        <div class="mv">
+          <div class="mv-canvas"><span class="mv-hint">实际播放时为该歌曲 MV 画面</span></div>
+
+          <div class="mv-src"><span class="dot"></span><span id="srcText">网易云 MV · 720P</span></div>
+
+          <div class="mv-bottom">
+            <div class="lrc" id="lrcText">如果爱是一场戏，那我愿演到底</div>
+            <div class="ctrl">
+              <button class="play" title="暂停">
+                <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+              </button>
+              <div class="prog">
+                <div class="prog-fill"></div>
+                <div class="prog-dot"></div>
+              </div>
+              <span class="time">01:23 / 04:58</span>
+              <button class="cbtn" title="音量">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/><path d="M18.5 6a9 9 0 010 12"/></svg>
+              </button>
+              <button class="cbtn q-on" id="qBtn" title="清晰度">720P</button>
+              <button class="cbtn" title="全屏">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- 加载中 -->
+          <div class="overlay ov-load">
+            <div class="spinner"></div>
+            <div class="ov-title">正在获取 MV 地址</div>
+            <div class="ov-sub">已识别到该歌曲的 MV，正在解析播放地址（签名地址每次实时获取）</div>
+          </div>
+
+          <!-- 暂无 MV -->
+          <div class="overlay ov-empty">
+            <div class="empty-cover">专辑封面</div>
+            <div class="ov-title">这首歌没有 MV</div>
+            <div class="ov-sub">已尝试网易云 / QQ 音乐 / 酷狗三个来源，均未找到该歌曲的官方 MV。<br>可以切回普通播放继续听歌。</div>
+            <button class="ov-btn">切回歌词界面</button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+  </div>
+</div>
+
+<div class="demo-bar">
+  <b>演示：</b>
+  <button class="demo-btn on" data-state="playing">MV 播放中</button>
+  <button class="demo-btn" data-state="loading">正在加载</button>
+  <button class="demo-btn" data-state="empty">暂无 MV</button>
+  <span style="opacity:.5">｜</span>
+  <button class="demo-btn" id="toggleSrc">切换来源演示</button>
+</div>
+
+<script>
+const frame = document.getElementById('frame');
+const stage = document.getElementById('stage');
+
+function fit() {
+  const s = Math.min((window.innerWidth - 60) / 1280, (window.innerHeight - 150) / 720, 1);
+  frame.style.width = (1280 * s) + 'px';
+  frame.style.height = (720 * s) + 'px';
+  stage.style.transform = 'scale(' + s + ')';
+}
+window.addEventListener('resize', fit);
+fit();
+
+document.querySelectorAll('.demo-btn[data-state]').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.demo-btn[data-state]').forEach((x) => x.classList.remove('on'));
+    b.classList.add('on');
+    stage.className = 'stage s-' + b.dataset.state;
+  });
+});
+
+const SOURCES = [
+  ['网易云', '演员', '薛之谦', '720P', '网易云 MV · 720P', '如果爱是一场戏，那我愿演到底'],
+  ['QQ 音乐', '稻香', '周杰伦', '1080P', 'QQ 音乐 MV · 1080P', '还记得你说家是唯一的城堡'],
+  ['酷狗', '海阔天空', 'Beyond', 'HD', '酷狗 MV · HD', '原谅我这一生不羁放纵爱自由'],
+];
+let si = 0;
+document.getElementById('toggleSrc').addEventListener('click', () => {
+  si = (si + 1) % SOURCES.length;
+  const [, name, artist, q, src, lrc] = SOURCES[si];
+  document.getElementById('songName').textContent = name;
+  document.getElementById('songArtist').textContent = artist;
+  document.getElementById('srcText').textContent = src;
+  document.getElementById('qBtn').textContent = q;
+  document.getElementById('lrcText').textContent = lrc;
+});
+</script>
+</body>
+</html>

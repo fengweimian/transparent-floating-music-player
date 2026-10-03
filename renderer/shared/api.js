@@ -185,6 +185,18 @@
     return { success: false, error: "浏览器环境请直接播放（下载需桌面版）" };
   }
 
+  // ---------- MV 地址（v3.7.0：网易云/QQ/酷狗三源 + 跨源按名兜底）----------
+  // 返回 { ok, url, source, sourceName, qualities:[{label,url}], title, duration, cover ... }
+  async function mvResolve(id, server, name, artist) {
+    if (!isElectron) return { ok: false, url: "", reason: "browser", message: "MV 播放需使用桌面版" };
+    try {
+      const r = await window.electronAPI.music.mv(id, server, name || "", artist || "");
+      return r || { ok: false, url: "", reason: "empty", message: "MV 解析无返回" };
+    } catch (e) {
+      return { ok: false, url: "", reason: "ipc_error", message: "MV 解析失败：" + ((e && e.message) || "未知错误") };
+    }
+  }
+
   window.XFApi = {
     isElectron,
     search,
@@ -195,5 +207,6 @@
     playlist,
     importPlaylist,
     download,
+    mvResolve,
   };
 })();
