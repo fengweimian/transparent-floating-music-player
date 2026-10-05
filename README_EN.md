@@ -22,6 +22,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 - **Custom playlists**: create / delete / add / remove / rename songs
 - **Play queue**: sequential / shuffle / single-loop, removable & "play next" (insert ahead) items
 - **Local music**: folder scanning (mp3 / wav / flac / ogg, etc.)
+- **Stereo sound effects**: one button on the control bar toggles **8D Surround** (audio sweeps back and forth between the left and right channels) and **Channel Alternation** (only one side plays at a time; interval selectable 1 / 2 / 4 s). Off by default, state remembered; lossless — standard Web Audio routing, no re-encoding
 
 ### 🎤 Lyrics
 - LRC parsing with progress highlight
@@ -88,7 +89,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- [TransparentMusicPlayer-Setup-3.7.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.7.0/TransparentMusicPlayer-Setup-3.7.0.exe) — NSIS installer (recommended)
+- [TransparentMusicPlayer-Setup-3.8.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.8.0/TransparentMusicPlayer-Setup-3.8.0.exe) — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 

@@ -23,6 +23,7 @@
 - **自定义歌单**：新建 / 删除 / 加歌 / 移除 / 重命名
 - **播放队列**：顺序 / 随机 / 单曲循环，队列可移除、插队（下一曲）、加歌单、下载
 - **本地音乐**：扫描文件夹播放（mp3 / wav / flac / ogg 等）
+- **双声道音效**：播放条上的音效按钮一键切换 **8D 环绕**（声音在左右声道之间来回流动）与 **左右交替**（每 2 秒只让一边出声，1 / 2 / 4 秒可调）；默认关闭、状态自动记忆，**对音质无损耗**（走标准 Web Audio，不做有损重编码）
 
 ### 🎤 歌词体验
 - LRC 歌词解析 + 播放进度高亮
@@ -89,7 +90,7 @@
 
 从 [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases) 下载最新版安装包：
 
-- [TransparentMusicPlayer-Setup-3.7.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.7.0/TransparentMusicPlayer-Setup-3.7.0.exe) —— NSIS 安装包（推荐）
+- [TransparentMusicPlayer-Setup-3.8.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.8.0/TransparentMusicPlayer-Setup-3.8.0.exe) —— NSIS 安装包（推荐）
 
 > 仅支持 **Windows x64**。安装时可自定义安装目录。
 

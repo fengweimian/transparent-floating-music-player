@@ -529,6 +529,15 @@
     savePlayerState();
   });
 
+  // 音效按钮：8D 环绕 / 左右交替（v3.8.0）
+  // ⚠️ attach 必须早于频谱初始化，且同一 audio 只能 createMediaElementSource 一次
+  if (window.XFAudioFx) {
+    XFAudioFx.attach(audio);
+    XFAudioFx.bindButton($("btn-fx"), {
+      onTip: (t) => showFeedback(t),
+    });
+  }
+
   // 进度条
   progressEl.addEventListener("mousedown", (e) => {
     seekFromEvent(e);
@@ -741,13 +750,25 @@
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
-      audioCtx = new AC();
-      const src = audioCtx.createMediaElementSource(audio);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.82;
-      src.connect(analyser);
-      analyser.connect(audioCtx.destination);
+      const fx = window.XFAudioFx;
+      if (fx && fx.ready()) {
+        // ⚠️ v3.8.0：音频图已由音效引擎持有（同一 audio 只能建一次 MediaElementSource），
+        //    频谱改为并联到引擎输出（只读死端，不影响声音，也不与效果冲突）
+        audioCtx = fx.ctx();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.82;
+        fx.tap(analyser);
+      } else {
+        // 兜底：音效引擎不可用时按原方式自建（无音效，但频谱正常）
+        audioCtx = new AC();
+        const src = audioCtx.createMediaElementSource(audio);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.82;
+        src.connect(analyser);
+        analyser.connect(audioCtx.destination);
+      }
       sizeEqCanvas();
       window.addEventListener("resize", sizeEqCanvas);
       drawEq();

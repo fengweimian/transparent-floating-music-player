@@ -245,6 +245,12 @@
   .cbtn:hover { transform: scale(1.16); opacity: 1; }
   .cbtn:active { transform: scale(0.92); }
   .cbtn.main svg { filter: drop-shadow(0 3px 12px rgba(0,0,0,0.5)); }
+  /* v3.8.0：音效按钮（8D 环绕 / 左右交替） */
+  /* ⚠️ 按钮自带 inline style="opacity:0.55"，必须 !important 才能覆盖 */
+  .cbtn#btn-fx.fx-active {
+    opacity: 1 !important; color: #7dd3fc;
+    filter: drop-shadow(0 0 7px rgba(125, 211, 252, 0.6));
+  }
 
   /* ===== 顶部角落：极简窗口钮===== */
   .corner {
@@ -686,6 +692,11 @@
         <svg id="mode-shuffle" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="display:none"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
         <svg id="mode-repeat-one" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/><line x1="11" y1="10" x2="12" y2="14"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
       </button>
+      <button class="cbtn" id="btn-fx" title="音效：原声" style="opacity:0.55">
+        <svg id="fx-icon-off" width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg>
+        <svg id="fx-icon-8d" width="19" height="19" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+        <svg id="fx-icon-alt" width="19" height="19" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+      </button>
       <button class="cbtn" id="btn-prev" title="上一曲">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4"/><rect x="5" y="4" width="2.4" height="16" rx="1.2"/></svg>
       </button>
@@ -949,6 +960,7 @@
 <script src="../shared/account.js"></script>
 <script src="../shared/lyrics-parse.js"></script>
 <script src="../shared/utils.js"></script>
+<script src="../shared/audio-fx.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

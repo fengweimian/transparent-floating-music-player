@@ -281,6 +281,15 @@
       btnMode.innerHTML = MODE_ICONS[m] || MODE_ICONS.sequential;
     });
 
+    // 音效按钮：8D 环绕 / 左右交替（v3.8.0）
+    // ⚠️ attach 必须在播放前完成，且同一元素只能建一次 MediaElementSource
+    if (window.XFAudioFx) {
+      XFAudioFx.attach(player.audio);
+      XFAudioFx.bindButton($("#btn-fx"), {
+        onTip: (t) => showToast("音效", t, "info"),
+      });
+    }
+
     volumeSlider.addEventListener("input", () => {
       player.setVolume(volumeSlider.value / 100);
       settings.volume = volumeSlider.value / 100;

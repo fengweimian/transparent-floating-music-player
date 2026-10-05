@@ -515,6 +515,15 @@
     savePlayerState();
   });
 
+  // 音效按钮：8D 环绕 / 左右交替（v3.8.0）
+  // ⚠️ 同一 audio 只能 createMediaElementSource 一次，统一交给音效引擎
+  if (window.XFAudioFx) {
+    XFAudioFx.attach(audio);
+    XFAudioFx.bindButton($("btn-fx"), {
+      onTip: (t) => showFeedback(t),
+    });
+  }
+
   // 进度条
   progressEl.addEventListener("mousedown", (e) => {
     seekFromEvent(e);
