@@ -145,8 +145,10 @@ function renderAt(time) {
     // 行变化（或首次）→ 渲染整行渐变容器（一个 span，颜色写入 CSS 变量）
     if (currentCharLineIdx !== idx) {
       currentCharLineIdx = idx;
+      // ⚠️ v3.8.1 修复：Lyrics 类没有 escape() 方法（全仓库唯一引用点，主窗口用的是 XFUtils.escapeHtml）
+      //  → 逐字歌词（网易云 YRC / QQ QRC）走到这里必抛 "parser.escape is not a function"，扫光失效。
       currentEl.innerHTML = `<span class="dl-scan" style="--scan-p:0%;--dl-played:${played};--dl-unplayed:${unplayed}">${line.chars
-        .map((c) => parser.escape(c.text))
+        .map((c) => XFUtils.escapeHtml(c.text))
         .join("")}</span>`;
     }
     // 每帧更新渐变前沿位置（光带从左到右推进，平滑连续）
@@ -188,6 +190,10 @@ window.electronAPI.desktopLyrics.onData(async (data) => {
       if (result && result.lyric) {
         parser.parse(result.lyric, result.tlyric || "", result.qrc || result.yrc || "");
         parser.hasLyrics = parser.lines.length > 0;
+        // ⚠️ v3.8.1 修复：换歌必须重置「已渲染逐字行」缓存。
+        //   currentCharLineIdx 是跨歌的模块级状态，新歌第一行 idx=0 若与旧值相等，
+        //   renderAt 会判定「行没变」而跳过重建 innerHTML → 短暂显示上一首的逐字内容（实测复现）。
+        currentCharLineIdx = -1;
         renderAt(0);
       } else {
         clearLyrics();

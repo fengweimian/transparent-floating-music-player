@@ -412,7 +412,10 @@
   // ===== 设置面板开关（居中弹出面板，替代独立设置窗口）=====
   const settingsOverlay = $("#settings-panel-overlay");
   const closeSettingsBtn = $("#btn-close-settings-panel");
-  const openSettingsPanel = (autoLogin) => {
+  // ⚠️ v3.8.1 修复：这里必须是 let —— 下方 ~485 行要把它包一层（滚动到顶 + 重置左侧导航），
+  //  原为 const 会在赋值处抛 TypeError: Assignment to constant variable，
+  //  导致「打开面板滚动到顶部 / 重置导航高亮」静默失效（面板本身仍能打开，所以一直没被发现）。
+  let openSettingsPanel = (autoLogin) => {
     populate();
     refreshLoginStatus();
     if (settingsOverlay) settingsOverlay.classList.add("open");

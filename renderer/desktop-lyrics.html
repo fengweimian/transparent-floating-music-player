@@ -158,6 +158,12 @@
     <div id="dl-empty" style="display:none;">暂无歌词</div>
   </div>
 
+  <!-- ⚠️ v3.8.1 修复：lyrics.js:88 的 Lyrics.parse() 走共享层 XFLyrics.buildLines()，
+       本窗口原先只引 lyrics.js → XFLyrics 未定义 → 每次切歌 parse 抛 ReferenceError 被 catch 静默吞掉
+       → clearLyrics() → 窗口永远停在「暂无歌词」（v3.6.0 起失效）。
+       共享层必须在 lyrics.js 之前加载（CSP default-src 'self' 允许同源子目录脚本）。 -->
+  <script src="shared/utils.js"></script>
+  <script src="shared/lyrics-parse.js"></script>
   <script src="lyrics.js"></script>
   <script src="desktop-lyrics.js"></script>
 </body>
