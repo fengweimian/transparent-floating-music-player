@@ -98,25 +98,45 @@ function applySettings(s) {
   nextEl.style.display = lines === 2 ? "" : "none";
 }
 
-// 卡拉OK扫光：更新整行渐变的前沿位置（--scan-p）
-// 与主窗口 lyrics.js 的 updateCharProgress 同一套算法：光带从左到右连续推进
-function updateScanProgress(scanEl, chars, time) {
-  if (!scanEl || !chars || chars.length === 0) return;
-  let i = 0;
-  while (i < chars.length - 1 && time >= chars[i + 1].start) i++;
-  const segEnd = i < chars.length - 1 ? chars[i + 1].start : chars[i].start + (chars[i].dur || 0.2);
-  const segDur = Math.max(0.001, segEnd - chars[i].start);
-  const inner = Math.max(0, Math.min(1, (time - chars[i].start) / segDur));
-  scanEl.style.setProperty("--scan-p", (((i + inner) / chars.length) * 100).toFixed(2) + "%");
+// 卡拉OK扫光前沿（--scan-p，0~100）：与主窗口 lyrics.js 的 updateCharProgress 完全对齐的两条时间轴
+//   ① 有官方逐字（网易云 YRC / QQ QRC）→ 字级前沿 = (字索引 + 字内进度) / 总字数
+//   ② 无逐字（酷狗 / 歌曲宝 / 歌曲海只给普通 LRC，或官方压根没出逐字）→ 行级前沿 = 行内播放进度
+// ⚠️ v3.8.2 修复：本窗口此前只实现了 ①，② 直接退化成静态文本 →
+//    酷狗《少年》《起风了》这类「源不给逐字」的歌，主界面有扫光（走的是②行级兜底）、桌面歌词完全没有。
+function scanPercent(line, nextLine, time) {
+  const chars = line.chars;
+  if (chars && chars.length > 0) {
+    // ① 字级前沿：当前时间落在第 i 个字内，前沿 = (i + 字内进度) / 总字数
+    let i = 0;
+    while (i < chars.length - 1 && time >= chars[i + 1].start) i++;
+    const segEnd = i < chars.length - 1 ? chars[i + 1].start : chars[i].start + (chars[i].dur || 0.2);
+    const segDur = Math.max(0.001, segEnd - chars[i].start);
+    const inner = Math.max(0, Math.min(1, (time - chars[i].start) / segDur));
+    return ((i + inner) / chars.length) * 100;
+  }
+  // ② 行级前沿（line.time 单位是【秒】，与主窗口一致：本行开始 → 下一行开始，末行 +6s 兜底）
+  const start = line.time;
+  const end = nextLine ? nextLine.time : start + 6;
+  const segDur = Math.max(0.001, end - start);
+  return Math.max(0, Math.min(1, (time - start) / segDur)) * 100;
+}
+
+function updateScanProgress(scanEl, line, nextLine, time) {
+  if (!scanEl || !line) return;
+  scanEl.style.setProperty("--scan-p", scanPercent(line, nextLine, time).toFixed(2) + "%");
 }
 
 // 渲染某时刻的歌词（单行/双行 + 卡拉OK扫光）
+// ⚠️ v3.8.2：清空当前句内容时必须同步重置 currentCharLineIdx。
+//   否则「行 idx 相同但 DOM 已被清空」时（如 seek 到首行之前再跳回来），
+//   重建判定跳过 → querySelector('.dl-scan') 拿到 null → 该行永远不再扫光。
 function renderAt(time) {
   if (!parser.hasLyrics || parser.lines.length === 0) {
     emptyEl.style.display = "block";
     prevEl.textContent = "";
     currentEl.textContent = "";
     nextEl.textContent = "";
+    currentCharLineIdx = -1;
     return;
   }
 
@@ -126,6 +146,7 @@ function renderAt(time) {
     prevEl.textContent = "";
     currentEl.textContent = "";
     nextEl.textContent = "";
+    currentCharLineIdx = -1;
     return;
   }
   emptyEl.style.display = "none";
@@ -136,27 +157,24 @@ function renderAt(time) {
   prevEl.textContent = ""; // 上一句不再显示
   nextEl.textContent = lines === 2 && idx < parser.lines.length - 1 ? parser.lines[idx + 1].text : "";
 
-  // 当前句：有真实逐字数据则卡拉OK扫光（整行渐变），否则整行显示
-  // ⚠️ 流畅性优化：只在行变化时重建 innerHTML，timeupdate 期间只更新 --scan-p（不重建 DOM）
+  // 当前句：卡拉OK扫光（整行渐变）——有官方逐字走①字级前沿，无逐字走②行级前沿（与主界面一致）
+  // ⚠️ 流畅性优化：只在行变化时重建 innerHTML，渲染循环期间只更新 --scan-p（不重建 DOM）
   const line = parser.lines[idx];
+  const nextLine = idx + 1 < parser.lines.length ? parser.lines[idx + 1] : null;
   const played = dlSettings.desktopLyricsPlayedColor || "#ffffff";
   const unplayed = dlSettings.desktopLyricsUnplayedColor || "#9a9aa8";
-  if (line.chars && line.chars.length > 0) {
-    // 行变化（或首次）→ 渲染整行渐变容器（一个 span，颜色写入 CSS 变量）
-    if (currentCharLineIdx !== idx) {
-      currentCharLineIdx = idx;
-      // ⚠️ v3.8.1 修复：Lyrics 类没有 escape() 方法（全仓库唯一引用点，主窗口用的是 XFUtils.escapeHtml）
-      //  → 逐字歌词（网易云 YRC / QQ QRC）走到这里必抛 "parser.escape is not a function"，扫光失效。
-      currentEl.innerHTML = `<span class="dl-scan" style="--scan-p:0%;--dl-played:${played};--dl-unplayed:${unplayed}">${line.chars
-        .map((c) => XFUtils.escapeHtml(c.text))
-        .join("")}</span>`;
-    }
-    // 每帧更新渐变前沿位置（光带从左到右推进，平滑连续）
-    updateScanProgress(currentEl.querySelector(".dl-scan"), line.chars, time);
-  } else {
-    currentEl.textContent = line.text;
-    currentCharLineIdx = -1;
+  if (currentCharLineIdx !== idx) {
+    currentCharLineIdx = idx;
+    // 有逐字 → 拼字（字级前沿）；无逐字 → 整行文本（行级前沿）。两者共用同一个 .dl-scan 容器。
+    // ⚠️ v3.8.1 修复：Lyrics 类没有 escape() 方法（全仓库唯一引用点，主窗口用的是 XFUtils.escapeHtml）
+    //  → 逐字歌词（网易云 YRC / QQ QRC）走到这里必抛 "parser.escape is not a function"，扫光失效。
+    const scanText = line.chars && line.chars.length > 0
+      ? line.chars.map((c) => XFUtils.escapeHtml(c.text)).join("")
+      : XFUtils.escapeHtml(line.text);
+    currentEl.innerHTML = `<span class="dl-scan" style="--scan-p:0%;--dl-played:${played};--dl-unplayed:${unplayed}">${scanText}</span>`;
   }
+  // 每帧更新渐变前沿位置（光带从左到右推进，平滑连续）
+  updateScanProgress(currentEl.querySelector(".dl-scan"), line, nextLine, time);
 }
 
 function clearLyrics() {
@@ -166,6 +184,7 @@ function clearLyrics() {
   prevEl.textContent = "";
   currentEl.textContent = "";
   nextEl.textContent = "";
+  currentCharLineIdx = -1;
 }
 
 // 播放状态图标（▶/⏸）
