@@ -17,7 +17,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 ## ✨ Features
 
 ### 🎵 Playback Core
-- **Multi-source search**: NetEase Cloud / QQ Music / Kugou / 歌曲宝 (Gequbao)
+- **Multi-source search**: NetEase Cloud / QQ Music / Kugou / Bodian / 歌曲宝 (Gequbao)
 - **Playlist import**: NetEase & QQ Music links (incl. QQ short-link auto-expansion)
 - **Custom playlists**: create / delete / add / remove / rename songs
 - **Play queue**: sequential / shuffle / single-loop, removable & "play next" (insert ahead) items
@@ -89,7 +89,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- [TransparentMusicPlayer-Setup-3.8.2.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.8.2/TransparentMusicPlayer-Setup-3.8.2.exe) — NSIS installer (recommended)
+- [TransparentMusicPlayer-Setup-3.9.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.9.0/TransparentMusicPlayer-Setup-3.9.0.exe) — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 

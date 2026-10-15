@@ -168,6 +168,94 @@
     return isYrcFormat(s) ? parseYrc(s) : parseQrc(s);
   }
 
+  // ---------- AWLRC 逐字（波点音乐）----------
+  // 格式：[mm:ss.xxx]<偏移ms,时长ms>字<偏移ms,时长ms>字…
+  // ⚠️ 与 YRC/QRC 的区别：行时间用标准 LRC 标签、字级用角括号 <a,b> 且为**行内相对**毫秒
+  //    → 必须换算成绝对秒（渲染层拿 chars[i].start 直接与播放秒数比较）
+  function isAwlrcFormat(raw) {
+    const s = String(raw || "");
+    return /<-?\d+,-?\d+>/.test(s) || s.includes("[kuwo:");
+  }
+
+  function parseAwlrc(raw) {
+    const out = [];
+    const body = String(raw || "").replace(/^\uFEFF/, "");
+    for (const rawLine of body.split(/\r?\n/)) {
+      const re = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
+      let m;
+      const tags = [];
+      while ((m = re.exec(rawLine)) !== null) {
+        const min = parseInt(m[1], 10);
+        const sec = parseInt(m[2], 10);
+        let ms = parseInt(m[3] || "0", 10);
+        if (m[3] && m[3].length === 2) ms *= 10;
+        else if (m[3] && m[3].length === 1) ms *= 100;
+        tags.push(min * 60000 + sec * 1000 + ms);
+      }
+      if (!tags.length) continue; // 元信息行（[ver:]/[ti:]/[ar:] 等）自动跳过
+
+      const content = rawLine.replace(re, "").replace(/\[kuwo:[^\]]*\]/g, "");
+      if (!content.trim()) continue;
+
+      const parts = splitAwlrcParts(content);
+      const text = parts.length ? parts.map((c) => c.text).join("") : content;
+      for (const t of tags) {
+        out.push({
+          time: t,
+          text,
+          chars: parts.length
+            ? parts.map((c) => ({ text: c.text, start: (t + c.start) / 1000, dur: Math.max(0, c.dur / 1000) }))
+            : [],
+        });
+      }
+    }
+    out.sort((a, b) => a.time - b.time);
+    return out;
+  }
+
+  // 拆 [text][mark][text][mark]…，兼容「标记在字前」与「标记在字后」两种排布
+  function splitAwlrcParts(content) {
+    const parts = [];
+    const re = /<(-?\d+),(-?\d+)>/g;
+    let idx = 0;
+    let m;
+    while ((m = re.exec(content)) !== null) {
+      if (m.index > idx) parts.push({ type: "text", value: content.slice(idx, m.index) });
+      parts.push({ type: "mark", start: Number(m[1]), dur: Number(m[2]) });
+      idx = re.lastIndex;
+    }
+    if (idx < content.length) parts.push({ type: "text", value: content.slice(idx) });
+    if (!parts.length) return [];
+
+    const chars = [];
+    if (parts[0].type === "mark") {
+      // 标记在字前：每个标记配随后的文本
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i];
+        if (p.type !== "mark") continue;
+        const next = parts[i + 1];
+        const text = next && next.type === "text" ? next.value : "";
+        if (text) chars.push({ text, start: p.start, dur: p.dur });
+      }
+    } else {
+      // 标记在字后：每个文本配随后的标记；行尾残余沿用上一字结束时间
+      let pending = null;
+      for (const p of parts) {
+        if (p.type === "text") {
+          if (pending && pending.mark) chars.push({ text: pending.value, start: pending.mark.start, dur: pending.mark.dur });
+          pending = { value: p.value, mark: null };
+        } else if (pending) {
+          pending.mark = p;
+        }
+      }
+      if (pending && pending.value && !pending.mark) {
+        const prev = chars[chars.length - 1];
+        chars.push({ text: pending.value, start: prev ? prev.start + (prev.dur || 0) : 0, dur: 0 });
+      }
+    }
+    return chars.filter((c) => c.text);
+  }
+
   // ---------- ⚠️ v3.6.0：统一入口「LRC + 逐字 → 行数组」（三模板共用，避免同一 bug 改三遍）----------
   // 原先 classic(lyrics.js) / template2 / template3 各写一份"解析标准 LRC → 按格式决定
   // 替换(QRC) 还是挂载(YRC)"的分支，逻辑等价但易漏改（v3.5.4/v3.5.9 均因三份不同步出过问题）。
@@ -184,6 +272,15 @@
     const linesMs = parseLrc(lrcText);
     let lines = linesMs.map((l) => ({ time: conv(l.time), text: label(l) }));
     if (!charText) return lines;
+
+    // ⚠️ v3.9.0 AWLRC（波点音乐）：自带行时间 + 逐字，直接采用
+    //    不能落到下面的 parseCharLines——AWLRC 会被当 QRC 解析出 0 行，导致逐字静默降级成行级
+    if (isAwlrcFormat(charText)) {
+      const alines = parseAwlrc(charText);
+      if (alines.length) {
+        return alines.map((l) => ({ time: conv(l.time), text: l.text, chars: l.chars }));
+      }
+    }
 
     const charLines = parseCharLines(charText);
     if (!charLines || !charLines.length) return lines;
@@ -203,5 +300,5 @@
     }));
   }
 
-  window.XFLyrics = { parseLrc, parseQrc, parseYrc, parseCharLines, isYrcFormat, attachChars, buildLines };
+  window.XFLyrics = { parseLrc, parseQrc, parseYrc, parseCharLines, isYrcFormat, attachChars, buildLines, parseAwlrc, isAwlrcFormat };
 })();

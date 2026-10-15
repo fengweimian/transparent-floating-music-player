@@ -8,10 +8,12 @@
   "use strict";
 
   // 渠道定义（唯一数据源；id 与主进程 music:search 分支一致，qq 内部映射 tencent）
+  // ⚠️ v3.9.0 新增「波点音乐」——加在这里，四个模板的下拉框/渠道栏自动生效
   const CHANNELS = [
     { id: "netease", name: "网易云" },
     { id: "qq", name: "QQ音乐" },
     { id: "kugou", name: "酷狗" },
+    { id: "bodian", name: "波点" },
     { id: "gqb", name: "歌曲宝" },
   ];
 
