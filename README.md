@@ -67,9 +67,18 @@
 - **无 MV 兜底**：找不到 MV 时显示专辑封面 + 三源说明，歌曲照常播放，可一键「切回歌词界面」
 - ⚠️ MV 播放地址带时效签名，每次播放实时获取（通常 1~3 秒）
 
+### 🎬 歌词 MV 舞台（模板五）
+- **用歌词做成的 MV**：不依赖官方 MV 资源，**每一首歌都能有舞台**——歌词本身就是画面
+- **全屏沉浸式歌词**：居中超大当前句 + 逐字点亮，前后句随节奏淡入淡出、带入景深
+- **流光效果**：扫描前沿跟随逐字位置移动的光晕 + 竖向光柱 + 漂浮微光粒子（Canvas 2D 绘制，可在设置中一键开关）
+- **封面氛围背景**：整屏取当前曲目封面做大幅虚化铺底，切歌时平滑过渡
+- **永不空屏的降级链**：有逐字数据 → 逐字点亮；仅行级歌词 → 匀速扫光；无歌词 → 封面 + 曲目信息
+- **零额外负担**：纯原生 CSS + Canvas 2D（不引入 WebGL / 不建 Web Audio 图），双声道音效不受影响
+- 💡 配合**波点音乐**音源使用效果最佳（实测逐字覆盖率 8/9，远高于网易云的 2/8）
+
 ### 🎨 视觉与背景
 - **全透明无边框悬浮窗**，桌面任意位置放置
-- **四套界面模板**：经典 / 新模板·全屏极简 / 歌词剧场 / MV 台（设置里一键切换，切换自动续播）
+- **五套界面模板**：经典 / 新模板·全屏极简 / 歌词剧场 / MV 台 / 歌词 MV 舞台（设置里一键切换，切换自动续播）
 - **背景幻灯片**：图片 / 视频，切换间隔可调，支持预加载与淡入淡出
 - 专辑封面模糊背景
 
@@ -90,7 +99,7 @@
 
 从 [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases) 下载最新版安装包：
 
-- [TransparentMusicPlayer-Setup-3.9.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.9.0/TransparentMusicPlayer-Setup-3.9.0.exe) —— NSIS 安装包（推荐）
+- [TransparentMusicPlayer-Setup-3.10.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.0/TransparentMusicPlayer-Setup-3.10.0.exe) —— NSIS 安装包（推荐）
 
 > 仅支持 **Windows x64**。安装时可自定义安装目录。
 

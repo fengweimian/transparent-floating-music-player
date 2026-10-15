@@ -66,9 +66,18 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 - **No-MV fallback**: shows album art with a three-source notice, song keeps playing, one click to switch back to the lyrics view
 - ⚠️ MV URLs carry time-limited signatures and are fetched fresh on every playback (usually 1–3s)
 
+### 🎬 Lyrics MV Stage (Template 5)
+- **An MV made from lyrics**: no official MV needed — **every song gets a stage**, because the lyrics themselves are the visuals
+- **Fullscreen immersive lyrics**: an oversized centered current line with per-character lighting; neighbouring lines fade and blur in depth as the song moves on
+- **Lumiere effects**: a glow that tracks the scan front, a vertical light beam, and drifting floating particles (drawn with Canvas 2D, toggleable in Settings)
+- **Cover ambience background**: the whole screen takes the current track's cover, heavily blurred, with a smooth transition on song change
+- **Never-blank fallback chain**: per-character data → character lighting; line-only lyrics → uniform scan; no lyrics → cover + track info
+- **Zero extra overhead**: pure native CSS + Canvas 2D (no WebGL, no Web Audio graph) — the dual-channel audio effects stay untouched
+- 💡 Works best with the **Bodian Music** source (measured per-character coverage 8/9, far above NetEase's 2/8)
+
 ### 🎨 Visual & Background
 - **Transparent borderless floating window**, draggable anywhere on the desktop
-- **Four UI templates**: Classic / New Minimal Fullscreen / Lyrics Theater / MV Stage (switch in Settings, playback resumes automatically)
+- **Five UI templates**: Classic / New Minimal Fullscreen / Lyrics Theater / MV Stage / Lyrics MV Stage (switch in Settings, playback resumes automatically)
 - **Background slideshow**: images / videos, adjustable interval, preloading & cross-fade
 - Blurred album-art background
 
@@ -89,7 +98,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- [TransparentMusicPlayer-Setup-3.9.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.9.0/TransparentMusicPlayer-Setup-3.9.0.exe) — NSIS installer (recommended)
+- [TransparentMusicPlayer-Setup-3.10.0.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.0/TransparentMusicPlayer-Setup-3.10.0.exe) — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 
