@@ -18,9 +18,16 @@
       pic = "https://y.gtimg.cn/music/photo_new/T002R300x300M000" + s.picId + ".jpg?max_age=2592000";
     }
     // 网易云：picId 直拼的 p1.music.126.net 格式实测 404，保留 pic 原值交给 onerror 降级
+    // v3.10.2：QQ 歌单返回的歌手字段叫 singer（字符串或数组），原来只读 artist → 一律「未知歌手」
+    let artist = s.artist || s.author || "";
+    if (!artist && s.singer) {
+      artist = Array.isArray(s.singer)
+        ? s.singer.map((x) => (x && x.name) || x || "").filter(Boolean).join(" / ")
+        : String(s.singer);
+    }
     return {
       name: s.name || s.title || "",
-      artist: s.artist || s.author || "",
+      artist,
       id: String(s.id || s.url_id || ""),
       server: server === "tencent" ? "qq" : server,
       pic,
@@ -144,6 +151,27 @@
     return "";
   }
 
+  // ---------- 批量补封面（v3.10.2，仅网易云）----------
+  // 老队列里「歌单取歌」进来的网易云歌只有 pic_id 没有 pic → 启动时一次性换回真实封面
+  async function picBatch(ids, server) {
+    const list = Array.isArray(ids) ? ids.filter(Boolean) : [];
+    if (!isElectron || !list.length) return {};
+    try {
+      const r = await window.electronAPI.music.picBatch(list, server);
+      return r && typeof r === "object" ? r : {};
+    } catch (e) { return {}; }
+  }
+
+  // ---------- 批量补歌曲信息（v3.10.2，仅 QQ：歌手 + 封面）----------
+  async function infoBatch(ids, server) {
+    const list = Array.isArray(ids) ? ids.filter(Boolean) : [];
+    if (!isElectron || !list.length) return {};
+    try {
+      const r = await window.electronAPI.music.infoBatch(list, server);
+      return r && typeof r === "object" ? r : {};
+    } catch (e) { return {}; }
+  }
+
   // ---------- 歌单详情 ----------
   async function playlist(id, server) {
     if (isElectron) {
@@ -204,6 +232,8 @@
     url,
     urlInfo,
     pic,
+    picBatch,
+    infoBatch,
     playlist,
     importPlaylist,
     download,

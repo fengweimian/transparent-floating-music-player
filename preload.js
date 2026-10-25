@@ -52,6 +52,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     url: (id, server, name, artist) => ipcRenderer.invoke("music:url", id, server, name || "", artist || ""),
     lyric: (id, server) => ipcRenderer.invoke("music:lyric", id, server),
     pic: (id, server, picId) => ipcRenderer.invoke("music:pic", id, server, picId),
+    // v3.10.2：批量补封面（网易云老队列歌曲没有 pic，一次性按 id 换回 picUrl）
+    picBatch: (ids, server) => ipcRenderer.invoke("music:picBatch", ids, server),
+    // v3.10.2：批量补歌曲信息（QQ 老队列缺歌手/封面，按 mid 拉详情）
+    infoBatch: (ids, server) => ipcRenderer.invoke("music:infoBatch", ids, server),
     // ⚠️ v3.7.0：MV 地址解析（三源 + 跨源按名兜底）；返回 {ok,url,source,sourceName,qualities,quality,...}
     mv: (id, server, name, artist) => ipcRenderer.invoke("music:mv", id, server, name || "", artist || ""),
     playlist: (id, server) => ipcRenderer.invoke("music:playlist", id, server),

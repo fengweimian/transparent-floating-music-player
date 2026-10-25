@@ -2008,6 +2008,47 @@
     showFeedback("已设为下一曲：\"" + (song.name || "") + "\"");
   }
 
+  // v3.10.2：老队列元数据自愈（只跑一次）
+  //   ① 网易云歌：当时「歌单取歌」只拿到 pic_id、没有 pic → 队列整列 ♪
+  //   ② QQ 歌：歌单只给 singer、artist 没落库 → 模板五标题显示「未知歌手」
+  let _metaHealed = false;
+  async function healQueueMeta() {
+    if (_metaHealed) return;
+    if (!XFStore.isElectron || !window.XFApi) return;
+    _metaHealed = true;
+    let hit = 0;
+    // 网易云：真封面文件名是 18 位 picId（1099511...）；老版本把「歌曲 id」拼在末尾 → 实测 404，也要重取
+    const badNePic = (u) => {
+      if (!u) return true;
+      const m = /(\d{5,})\.(?:jpg|jpeg|png|webp)/i.exec(u);
+      return !!(m && String(m[1]).length < 15);
+    };
+    const ne = queue.filter((s) => s.type === "online" && s.server === "netease"
+      && /^\d+$/.test(String(s.id || "")) && badNePic(s.cover));
+    if (ne.length && typeof XFApi.picBatch === "function") {
+      try {
+        const map = await XFApi.picBatch(ne.map((s) => s.id), "netease");
+        ne.forEach((s) => { const u = map[String(s.id)]; if (u) { s.cover = u; hit++; } });
+      } catch (e) { /* 补封面失败不影响播放 */ }
+    }
+    // QQ：老版本把「歌曲 mid」当专辑 mid 拼封面 CDN → 实测 404，也算坏封面
+    const badQqPic = (s) => !s.cover || String(s.cover).includes(String(s.id));
+    const qq = queue.filter((s) => s.type === "online" && (s.server === "qq" || s.server === "tencent")
+      && /^[0-9A-Za-z]{10,20}$/.test(String(s.id || "")) && (!s.artist || badQqPic(s)));
+    if (qq.length && typeof XFApi.infoBatch === "function") {
+      try {
+        const map = await XFApi.infoBatch(qq.map((s) => s.id), "qq");
+        qq.forEach((s) => {
+          const m = map[String(s.id)];
+          if (!m) return;
+          if (!s.artist && m.artist) { s.artist = m.artist; hit++; }
+          if (m.pic && badQqPic(s)) { s.cover = m.pic; hit++; }
+        });
+      } catch (e) { /* 同上 */ }
+    }
+    if (hit) { renderQueue(); updateNowPlaying(); scheduleSaveState(); }
+  }
+
   function renderQueue() {
     queueCount.textContent = queue.length + " 首";
     queueList.innerHTML = "";
@@ -2015,6 +2056,7 @@
       queueList.innerHTML = '<div class="empty-tip">队列为空 · 搜索歌曲或选择音乐文件夹</div>';
       return;
     }
+    healQueueMeta();
     queue.forEach((s, i) => {
       const row = document.createElement("div");
       row.className = "song-row" + (i === currentIdx ? " playing" : "");
@@ -2212,7 +2254,10 @@
       id: s.id || s.url || "",
       server: s.server || lastServer,
       name: s.name || s.title || "未知歌曲",
-      artist: s.artist || s.author || "",
+      // v3.10.2：QQ 歌单的歌手字段叫 singer（字符串/数组），原来只读 artist → 「未知歌手」
+      artist: s.artist || s.author || (Array.isArray(s.singer)
+        ? s.singer.map((x) => (x && x.name) || x || "").filter(Boolean).join(" / ")
+        : (s.singer || "")),
       url: s.url || "",
       cover: s.pic || "",
       lrcUrl: s.lrcUrl || s.lrc || "",
