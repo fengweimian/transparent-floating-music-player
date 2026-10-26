@@ -281,6 +281,15 @@ class MusicPlayer {
 
   // ========== Playback ==========
 
+  // ⚠️ v3.10.3：联网取址是异步的（实测 2~15s），必须先把旧音轨停掉。
+  //   否则「点了下一首」之后那几秒甚至十几秒里旧歌还在响，观感就是"点了没反应"。
+  //   pause() 会触发 pause 事件，UI 的播放按钮自动变回暂停态。
+  _pauseBeforeFetch() {
+    if (!this.audio.paused) {
+      try { this.audio.pause(); } catch (e) {}
+    }
+  }
+
   async playOnlineTrack(index) {
     if (index < 0 || index >= this.playlist.length) return;
     const track = this.playlist[index];
@@ -289,6 +298,7 @@ class MusicPlayer {
       return;
     }
     const seq = ++this._loadSeq;
+    if (track.type === "online") this._pauseBeforeFetch();   // v3.10.3：先停旧歌再取址
     // ⚠️ v3.6.0：改用 urlInfo —— 拿主进程分类后的失败原因（VIP/需登录/网络/代理故障）而非统一文案
     const result = await XFApi.urlInfo(track.id, track.server, track.name, track.artist);
     if (seq !== this._loadSeq) return; // 已被更新的切歌请求取代
@@ -313,6 +323,7 @@ class MusicPlayer {
     this.currentTrack = track;
 
     if (track.type === "online") {
+      this._pauseBeforeFetch();   // v3.10.3：先停旧歌再取址
       const result = await XFApi.urlInfo(track.id, track.server, track.name, track.artist);
       if (seq !== this._loadSeq) return;
       if (!result.url) {
@@ -338,6 +349,7 @@ class MusicPlayer {
     this.currentTrack = track;
 
     if (track.type === "online") {
+      this._pauseBeforeFetch();   // v3.10.3：先停旧歌再取址
       // ⚠️ v3.6.0：改用 urlInfo —— 拿主进程分类后的失败原因（VIP/需登录/网络/代理故障）
       const result = await XFApi.urlInfo(track.id, track.server, track.name, track.artist);
       if (seq !== this._loadSeq) return; // 竞态：已被更新的切歌取代

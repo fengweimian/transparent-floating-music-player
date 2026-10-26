@@ -396,10 +396,40 @@
         else audio.addEventListener("canplay", retry);
         return;
       }
-      showFeedback("播放失败：" + (e && e.message ? e.message : "未知错误"));
-      forwardDl({ type: "playstate", playing: false });
+      // ⚠️ v3.10.3：直链有时效（网易云约 20 分钟），失效后 play() 抛 NotSupportedError，
+      //   e.message 是英文原文（"Failed to load because no supported source was found"）。
+      //   原来一句中文不带原因、1.8 秒就消失 → 用户只觉得"点了没反应"。
+      //   现在清掉缓存 + 常驻中文原因，再点播放会自动重新取址。
+      failPlay(song, "音频加载失败（地址可能已失效），点播放重新获取");
     });
   }
+  // ⚠️ v3.10.3：静默停掉上一首（切歌 / 取址失败都走这里）
+  //   根因：playAt 是先更新 UI、后异步取址；取址期间（实测 2~15s）和失败后都没人停 audio，
+  //   于是 src 仍是上一首 → 眼见新歌、耳听旧歌。顺带清 src，否则进度条还按上一首的时长走。
+  function stopAudioQuietly() {
+    try {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    } catch (e) {}
+    playing = false;
+    updatePlayIcon();
+    try {
+      progressFill.style.width = "0%";
+      timeCurrent.textContent = "00:00";
+      timeTotal.textContent = "00:00";
+    } catch (e) {}
+    forwardDl({ type: "timeupdate", currentTime: 0, duration: 0 });
+  }
+  // ⚠️ v3.10.3：取址失败 → 停住、清空 url（下次点播放会重新走完整取址）、常驻显示原因
+  function failPlay(song, message) {
+    if (song) song.url = "";
+    stopAudioQuietly();
+    showFeedback(message || "这首歌拿不到音频地址，点播放可重试", true);
+    forwardDl({ type: "playstate", playing: false });
+    scheduleSaveState();
+  }
+
   function playAt(idx) {
     if (idx < 0 || idx >= queue.length) return;
     currentIdx = idx;
@@ -423,20 +453,28 @@
     renderSearchHighlight();
     // 桌面歌词：切歌
     forwardDl({ type: "trackchange", track: dlTrack(song) });
-    // 在线歌曲：主进程搜索返回的 url 为空 → 先拉取音频地址再播放（静默，不弹提示）
-    if (song.type === "online" && !song.url && song.id && song.server) {
+    // 在线歌曲：主进程搜索返回的 url 为空 → 先拉取音频地址再播放
+    // ⚠️ v3.10.3：这段原来是「先切 UI、再异步取址、失败只弹一句」。三个后果：
+    //   ① 取址 2~15s 期间旧歌还在响；② 失败后旧歌永远在响（UI/音频不一致）；
+    //   ③ 全程没有任何"正在加载"的痕迹 → 被当成"点播放没反应"。
+    //   现在：取址前先静音旧歌 + 常驻"正在获取地址"，失败则停住并常驻原因（点播放即重试）
+    const needFetch = song.type === "online" && !song.url && song.id && song.server;
+    if (needFetch) {
+      stopAudioQuietly();
+      showFeedback("正在获取音频地址…", true);
       XFApi.urlInfo(song.id, song.server, song.name, song.artist).then((r) => {
+        if (curSong() !== song) return;   // 已切走：丢弃过期结果，别覆盖当前歌
         if (r.url) {
           song.url = r.url;
-          if (curSong() === song) startPlay(song);
+          hideFeedback();
+          startPlay(song);
         } else {
           // ⚠️ v3.6.0：展示主进程给出的具体原因（VIP/需登录/网络/代理故障），不再一律"换一首试试"
-          showFeedback(r.message || "获取音频失败，请换一首试试");
-          forwardDl({ type: "playstate", playing: false });
+          failPlay(song, r.message || "获取音频失败，请换一首试试");
         }
       }).catch(() => {
-        showFeedback("获取音频失败，请换一首试试");
-        forwardDl({ type: "playstate", playing: false });
+        if (curSong() !== song) return;
+        failPlay(song, "获取音频失败，请检查网络后重试");
       });
     } else {
       startPlay(song);
@@ -470,8 +508,20 @@
     }
     if (audio.paused) {
       audio.play().then(() => { playing = true; updatePlayIcon(); forwardDl({ type: "playstate", playing: true }); savePlayerState(); }).catch((err) => {
-        // 浏览器自动播放策略：需用户手势解锁（首次点击播放按钮即是手势，一般可解）
-        showFeedback("浏览器阻止了自动播放，请再点一次播放");
+        // ⚠️ v3.10.3：直链有有效期（网易云约 20 分钟），过期后 play() 抛 NotSupportedError。
+        //   原来一律提示"浏览器阻止了自动播放"（误导），现在清掉缓存重新取址一次。
+        const nm = (err && err.name) || "";
+        if (nm === "NotSupportedError") {
+          song.url = "";
+          playAt(currentIdx);
+          return;
+        }
+        if (nm === "NotAllowedError") {
+          // 真正的自动播放策略拦截：需用户手势
+          showFeedback("浏览器阻止了自动播放，请再点一次播放");
+          return;
+        }
+        failPlay(song, "播放失败：" + ((err && err.message) || "音频地址可能已失效，点播放重试"));
       });
     } else {
       audio.pause(); playing = false; updatePlayIcon();
@@ -498,6 +548,18 @@
     if (modeIdx === 1 && queue.length > 1) { do { idx = Math.floor(Math.random() * queue.length); } while (idx === currentIdx); }
     else idx = (currentIdx + 1) % queue.length;
     playAt(idx);
+  });
+
+  // ⚠️ v3.10.3：直链有时效（网易云 ~20 分钟，酷狗/歌曲宝同理），放着不动久了再点播放会 404。
+  //   以前表现是"点了没反应"，现在统一兜：清缓存 + 常驻提示，点播放即重新取址。
+  let _errSong = null;
+  audio.addEventListener("error", () => {
+    const song = curSong();
+    if (!song || song.type !== "online") return;
+    if (!audio.getAttribute("src")) return;   // stopAudioQuietly 主动清源导致的不算
+    if (_errSong === song) return;            // 同一首只处理一次，防死循环
+    _errSong = song;
+    failPlay(song, "音频地址已失效（直链有时效），点播放重新获取");
   });
 
   audio.addEventListener("ended", () => {
@@ -725,12 +787,19 @@
 
   // ============ 反馈提示 ============
   let tipTimer;
-  function showFeedback(text) {
+  function showFeedback(text, sticky) {
     const tip = $("feedback-tip");
     tip.textContent = text;
     tip.style.opacity = "1";
     clearTimeout(tipTimer);
+    // v3.10.3：sticky=true 时常驻（取址中 / 失败原因要一直看得到），等下次提示或 hideFeedback 覆盖
+    if (sticky === true) return;
     tipTimer = setTimeout(() => { tip.style.opacity = "0"; }, 1800);
+  }
+  function hideFeedback() {
+    clearTimeout(tipTimer);
+    const tip = $("feedback-tip");
+    if (tip) tip.style.opacity = "0";
   }
 
   // ============ 更多菜单 / 面板开关 ============
