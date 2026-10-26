@@ -98,7 +98,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- [TransparentMusicPlayer-Setup-3.10.4.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.4/TransparentMusicPlayer-Setup-3.10.4.exe) — NSIS installer (recommended)
+- [TransparentMusicPlayer-Setup-3.10.5.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.5/TransparentMusicPlayer-Setup-3.10.5.exe) — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 

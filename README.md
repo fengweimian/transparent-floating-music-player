@@ -99,7 +99,7 @@
 
 从 [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases) 下载最新版安装包：
 
-- [TransparentMusicPlayer-Setup-3.10.4.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.4/TransparentMusicPlayer-Setup-3.10.4.exe) —— NSIS 安装包（推荐）
+- [TransparentMusicPlayer-Setup-3.10.5.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.5/TransparentMusicPlayer-Setup-3.10.5.exe) —— NSIS 安装包（推荐）
 
 > 仅支持 **Windows x64**。安装时可自定义安装目录。
 
