@@ -186,6 +186,7 @@
   audio.crossOrigin = "anonymous";
   let queue = [];          // 播放队列：{type:'local'|'online', ...}
   let currentIdx = -1;
+  let _errSong = null;   // v3.11.0：从 error 监听区上移，避免 playAt 早于声明执行时的 TDZ
   let playing = false;
   let modeIdx = 0;         // 0=列表循环 1=随机 2=单曲
   const modeOrder = ["repeat", "shuffle", "repeatOne"];
@@ -439,6 +440,7 @@
   function playAt(idx) {
     if (idx < 0 || idx >= queue.length) return;
     currentIdx = idx;
+    _errSong = null;   // v3.11.0：换歌即清空"已兜底过"的记录，同一首再次失效仍能兜底
     const song = queue[idx];
     // ⚠️ v3.5.5 本地"最近听过"：播放时记录（在线/本地都记）
     if (song && song.name) {
@@ -566,11 +568,16 @@
 
   // ⚠️ v3.10.3：直链有时效（网易云 ~20 分钟，酷狗/歌曲宝同理），放着不动久了再点播放会 404。
   //   以前表现是"点了没反应"，现在统一兜：清缓存 + 常驻提示，点播放即重新取址。
-  let _errSong = null;
+
   audio.addEventListener("error", () => {
     const song = curSong();
     if (!song || song.type !== "online") return;
-    if (!audio.getAttribute("src")) return;   // stopAudioQuietly 主动清源导致的不算
+    const src = audio.getAttribute("src");
+    if (!src) return;   // stopAudioQuietly 主动清源导致的不算
+    // ⚠️ v3.11.0：确认这个 error 来自「当前歌的地址」——
+    //   切换 src 后旧资源若延迟上报 error，curSong() 已是新歌，会把好歌误判成失效并停掉
+    if (!song.url) return;
+    if (src !== song.url && src !== encodeURI(song.url)) return;
     if (_errSong === song) return;            // 同一首只处理一次，防死循环
     _errSong = song;
     failPlay(song, "音频地址已失效（直链有时效），点播放重新获取");
@@ -596,7 +603,7 @@
   if (window.XFAudioFx) {
     XFAudioFx.attach(audio);
     XFAudioFx.bindButton($("btn-fx"), {
-      onTip: (t) => showFeedback(t),
+      onTip: (t) => XFToast.show({ title: "音效", message: t, type: "info" }),
     });
   }
 
@@ -1263,7 +1270,7 @@
             if (c.status === 0) {
               stopQqQrPoll();
               statusEl.textContent = "登录成功！";
-              showFeedback("QQ音乐登录成功");
+              XFToast.show({ title: "✓ 登录成功", message: "QQ 音乐", type: "success" });
               updateLoginEntry();
               renderAccount();
               return;
@@ -1337,7 +1344,7 @@
             if (c.status === 4) {
               stopKgQrPoll();
               statusEl.textContent = "登录成功！";
-              showFeedback("酷狗登录成功");
+              XFToast.show({ title: "✓ 登录成功", message: "酷狗音乐", type: "success" });
               updateLoginEntry();
               renderAccount();
               return;
@@ -1811,7 +1818,7 @@
     queue.splice(target, 0, song);
     renderQueue();
     scheduleSaveState();
-    showFeedback("已设为下一曲：\"" + (song.name || "") + "\"");
+    XFToast.show({ title: "⏭ 已设为下一曲", message: song.name || "", type: "info" });
   }
 
   // v3.10.2：老队列元数据自愈（只跑一次）
@@ -1891,10 +1898,14 @@
           const idx = parseInt(e.target.closest("[data-rm]").dataset.rm);
           queue.splice(idx, 1);
           if (idx === currentIdx) {
-            currentIdx = -1; playing = false;
-            audio.pause(); audio.src = "";
+            // ⚠️ v3.11.0：队列里还有歌时别直接置 -1 —— 原来点播放会提示"请先搜索歌曲"
+            //   现在指向被删位置上的那首（删末尾则指上一首），只换 UI 不自动播放
+            currentIdx = queue.length ? Math.min(idx, queue.length - 1) : -1;
+            playing = false;
+            try { audio.pause(); audio.removeAttribute("src"); audio.load(); } catch (e) {}
             updatePlayIcon();
-            resetNowPlayingUI();
+            if (currentIdx >= 0) { updateNowPlaying(); renderQueue(); }
+            else resetNowPlayingUI();
           }
           else if (idx < currentIdx) currentIdx--;
           renderQueue();
@@ -2119,7 +2130,7 @@
     const name = s.name || s.title || "song";
     const artist = s.artist || s.author || "";
     if (XFStore.isElectron && s.id) {
-      XFApi.download(s.id, s.server || lastServer, name, artist);
+      XFApi.download(s.id, s.server || lastServer, name, artist, s.pic || s.cover || "");
       showFeedback("开始下载：" + name);
       return;
     }
@@ -2206,10 +2217,12 @@
           playAt(queue.length - (pl.songs ? pl.songs.length : 0));
           showFeedback("已载入歌单「" + pl.name + "」");
         } else if (act === "rename") {
-          const nn = prompt("重命名歌单", pl.name);
-          if (nn && nn.trim()) {
-            XFStore.renamePlaylist(pi - offset, nn.trim()).then(refreshPlaylists);
-          }
+          // ⚠️ v3.11.0：Electron 不支持 window.prompt（直接 throw），改用页面内输入弹层
+          XFDialog.input({ title: "重命名歌单", value: pl.name, okText: "重命名" }).then((nn) => {
+            if (nn && nn.trim()) {
+              XFStore.renamePlaylist(pi - offset, nn.trim()).then(refreshPlaylists);
+            }
+          });
         } else if (act === "del") {
           if (confirm("删除歌单「" + pl.name + "」？")) {
             XFStore.removePlaylist(pi - offset).then(refreshPlaylists);
@@ -2268,9 +2281,16 @@
 
   // ============ 导入歌单（XFApi：桌面版主进程支持 QQ 短链 / 浏览器 Meting）============
   function openImportDialog() {
-    const url = prompt("粘贴网易云/QQ音乐歌单链接或歌单ID：\n示例：\n网易云 https://music.163.com/playlist?id=123\nQQ https://y.qq.com/n/ryqq/playlist/123");
-    if (!url) return;
-    importPlaylist(url);
+    // ⚠️ v3.11.0：原来用 prompt，Electron 直接 throw → 点「导入歌单」毫无反应
+    XFDialog.input({
+      title: "导入歌单",
+      message: "粘贴网易云 / QQ 音乐歌单链接或歌单 ID\n示例：\n网易云 https://music.163.com/playlist?id=123\nQQ https://y.qq.com/n/ryqq/playlist/123",
+      placeholder: "https://music.163.com/playlist?id=...",
+      okText: "解析",
+    }).then((url) => {
+      if (!url || !url.trim()) return;
+      importPlaylist(url.trim());
+    });
   }
 
   async function importPlaylist(input) {
@@ -2282,7 +2302,11 @@
         showFeedback("歌单为空或无法解析（QQ分享短链需桌面版）");
         return;
       }
-      const name = prompt("歌单名称（默认取歌单标题）：", result.name || "导入歌单") || "导入歌单";
+      const name = (await XFDialog.input({
+        title: "歌单名称",
+        message: "默认取歌单标题，留空则用「导入歌单」",
+        value: result.name || "导入歌单",
+      })) || "导入歌单";
       const songs = result.songs.map((x) => ({
         type: "online",
         name: x.name || "",
@@ -2824,7 +2848,7 @@
       // 我的音乐面板开着时也刷新
       if (accountPanel.classList.contains("open")) renderAccount();
       if (data && data.loggedIn) {
-        showFeedback("登录成功：" + (data.nickname || ""));
+        XFToast.show({ title: "✓ 登录成功", message: "欢迎 " + (data.nickname || "网易云用户"), type: "success" });
       } else if (data && data.loggedIn === false) {
         showFeedback("已退出登录");
       }
@@ -2841,7 +2865,7 @@
         updateLoginEntry();
         if (accountPanel.classList.contains("open")) renderAccount();
         if (data && data.loggedIn) {
-          showFeedback("酷狗登录成功：" + (data.nickname || ""));
+          XFToast.show({ title: "✓ 登录成功", message: "欢迎 " + (data.nickname || "酷狗用户"), type: "success" });
         } else if (data && data.loggedIn === false) {
           showFeedback("已退出酷狗");
         }
@@ -2860,7 +2884,7 @@
         if (r && r.netease && r.netease.saved && !r.netease.valid) expired.push("网易云");
         if (r && r.qq && r.qq.saved && !r.qq.valid) expired.push("QQ音乐");
         if (expired.length) {
-          showFeedback(expired.join("、") + " 登录已过期，点击菜单「我的音乐」重新登录");
+          XFToast.show({ title: "登录状态", message: expired.join("、") + " 登录已过期，点击这里打开「我的音乐」重新登录", type: "info", onClick: function () { var b = document.getElementById("menu-account"); if (b) b.click(); } });
         }
       } catch (e) { /* 忽略 */ }
     }, 3000);
@@ -2871,12 +2895,19 @@
     window.electronAPI.music.onDownloadProgress((info) => {
       if (info.status === "downloading") {
         searchStatus.textContent = "⬇ 正在下载: " + (info.file || "");
+        XFToast.show({ title: "正在下载", message: info.file || "", type: "info" });
       } else if (info.status === "done") {
         searchStatus.textContent = "✅ 下载完成: " + (info.file || "");
-        showFeedback("下载完成：" + info.file + "（" + (info.size || "") + "）");
+        // ⚠️ v3.11.0：对齐经典模板 —— 完成卡片可点击，直接在资源管理器里定位文件
+        XFToast.show({
+          title: "✅ 下载完成（" + (info.size || "") + "）",
+          message: (info.file || "") + "\n" + (info.path || ""),
+          type: "success",
+          onClick: info.path ? function () { window.electronAPI.shell.showItemInFolder(info.path); } : null,
+        });
       } else if (info.status === "error") {
         searchStatus.textContent = "下载失败: " + (info.error || "");
-        showFeedback("下载失败：" + (info.error || "未知错误"));
+        XFToast.show({ title: "❌ 下载失败", message: info.error || "未知错误", type: "error" });
       }
     });
   }

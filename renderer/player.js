@@ -48,6 +48,8 @@ class MusicPlayer {
     });
     this.audio.addEventListener("pause", () => this._emit("pause"));
     this.audio.addEventListener("error", () => {
+      // ⚠️ v3.11.0：切歌时 _pauseBeforeFetch 会主动清掉 src，此时不该当成"播放失败"去跳歌
+      if (!this.audio.getAttribute("src")) return;
       const err = this.audio.error;
       let msg = "播放失败";
       if (err) {
@@ -284,10 +286,16 @@ class MusicPlayer {
   // ⚠️ v3.10.3：联网取址是异步的（实测 2~15s），必须先把旧音轨停掉。
   //   否则「点了下一首」之后那几秒甚至十几秒里旧歌还在响，观感就是"点了没反应"。
   //   pause() 会触发 pause 事件，UI 的播放按钮自动变回暂停态。
+  // ⚠️ v3.11.0：补上清 src —— 只 pause 不够：
+  //   ① audio.src 仍指向上一首 → 用户按播放时 playPause() 看到 src 非空就直接播上一首；
+  //   ② 取址失败时 src 永远停在上一首 → 点播放就是"歌曲换了但音频还是上一首"。
+  //   清空后与新版模板的 stopAudioQuietly() 行为一致。
   _pauseBeforeFetch() {
-    if (!this.audio.paused) {
-      try { this.audio.pause(); } catch (e) {}
-    }
+    try {
+      if (!this.audio.paused) this.audio.pause();
+      this.audio.removeAttribute("src");
+      this.audio.load();
+    } catch (e) {}
   }
 
   async playOnlineTrack(index) {
@@ -303,6 +311,12 @@ class MusicPlayer {
     const result = await XFApi.urlInfo(track.id, track.server, track.name, track.artist);
     if (seq !== this._loadSeq) return; // 已被更新的切歌请求取代
     if (!result.url) {
+      // ⚠️ v3.11.0：失败也要把「当前曲」指向用户点的这首。
+      //   原来 currentIndex/currentTrack 只在成功后赋值，取址失败时内部还停在上一首 →
+      //   用户再点播放，playPause 走 _loadAndPlay(currentIndex) 播的还是上一首，
+      //   表现就是"歌曲换了、音频还是上一首"。UI 仍不提前切（不发 trackchange）。
+      this.currentIndex = index;
+      this.currentTrack = track;
       this._emit("error", { message: result.message || "无法获取播放地址" });
       return;
     }

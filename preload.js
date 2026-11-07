@@ -57,10 +57,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     // v3.10.2：批量补歌曲信息（QQ 老队列缺歌手/封面，按 mid 拉详情）
     infoBatch: (ids, server) => ipcRenderer.invoke("music:infoBatch", ids, server),
     // ⚠️ v3.7.0：MV 地址解析（三源 + 跨源按名兜底）；返回 {ok,url,source,sourceName,qualities,quality,...}
-    mv: (id, server, name, artist) => ipcRenderer.invoke("music:mv", id, server, name || "", artist || ""),
+    // ⚠️ v3.11.0：mv 接口随模板四（MV 台）下线
     playlist: (id, server) => ipcRenderer.invoke("music:playlist", id, server),
     importPlaylist: (url) => ipcRenderer.invoke("music:importPlaylist", url),
-    download: (id, server, name, artist) => ipcRenderer.invoke("music:download", id, server, name, artist),
+    download: (id, server, name, artist, pic) => ipcRenderer.invoke("music:download", id, server, name, artist, pic || ""),
     onDownloadProgress: (callback) => {
       ipcRenderer.on("download:progress", (_event, info) => callback(info));
     },

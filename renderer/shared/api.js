@@ -205,25 +205,17 @@
   }
 
   // ---------- 下载（主进程真实落盘 + 进度事件；浏览器用 a 标签）----------
-  async function download(id, server, name, artist) {
+  // ⚠️ v3.11.0：多传一个 pic（搜索结果里的封面地址）。主进程优先用它下封面，
+  //    因为 meting 的 QQ/网易云封面拼接规则实测都已失效（404）。
+  async function download(id, server, name, artist, pic) {
     if (isElectron) {
-      return await window.electronAPI.music.download(id, server, name, artist);
+      return await window.electronAPI.music.download(id, server, name, artist, pic || "");
     }
     // 浏览器 fallback：直接打开 url（由调用方提供）
     return { success: false, error: "浏览器环境请直接播放（下载需桌面版）" };
   }
 
-  // ---------- MV 地址（v3.7.0：网易云/QQ/酷狗三源 + 跨源按名兜底）----------
-  // 返回 { ok, url, source, sourceName, qualities:[{label,url}], title, duration, cover ... }
-  async function mvResolve(id, server, name, artist) {
-    if (!isElectron) return { ok: false, url: "", reason: "browser", message: "MV 播放需使用桌面版" };
-    try {
-      const r = await window.electronAPI.music.mv(id, server, name || "", artist || "");
-      return r || { ok: false, url: "", reason: "empty", message: "MV 解析无返回" };
-    } catch (e) {
-      return { ok: false, url: "", reason: "ipc_error", message: "MV 解析失败：" + ((e && e.message) || "未知错误") };
-    }
-  }
+  // ⚠️ v3.11.0：MV 解析（mvResolve）随模板四下线下线，主进程 music:mv 已删除
 
   window.XFApi = {
     isElectron,
@@ -237,6 +229,5 @@
     playlist,
     importPlaylist,
     download,
-    mvResolve,
   };
 })();

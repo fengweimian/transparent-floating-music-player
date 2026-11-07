@@ -637,12 +637,12 @@
   function downloadSong(idx) {
     if (idx < 0 || idx >= searchResults.length) return;
     const song = searchResults[idx];
-    downloadTrack(song.id, song.server || "netease", song.name, song.artist);
+    downloadTrack(song.id, song.server || "netease", song.name, song.artist, song.pic || song.cover || "");
   }
 
-  async function downloadTrack(id, server, name, artist) {
+  async function downloadTrack(id, server, name, artist, pic) {
     searchStatus.textContent = `⬇ 开始下载: ${artist ? artist + " - " : ""}${name}`;
-    const result = await XFApi.download(id, server, name, artist);
+    const result = await XFApi.download(id, server, name, artist, pic);
     if (result && !result.success) {
       searchStatus.textContent = `下载失败: ${result.error}`;
       showToast("❌ 下载失败", result.error || "未知错误", "error");
