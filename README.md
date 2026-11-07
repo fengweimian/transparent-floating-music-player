@@ -48,6 +48,7 @@
 - 右上角独立登录入口（**App 内嵌二维码扫码**，QQ 官方 ptlogin2 通道，安全可靠）
 - **我的歌单**：我创建的 + 我收藏的歌单合并展示（红心歌单 ♥ 置顶），点击即播
 - **每日推荐**：新歌推荐 + 热门推荐歌单
+- **付费曲目**：登录绿钻 / 豪华绿钻后**可直接播放 VIP 曲目**（v3.10.6 起播放取址带上登录态；未登录时付费曲目拿不到音频地址）
 - 登录入口同时体现在**设置页**（可查看登录状态 / 退出）
 - ⚠️ QQ 音乐登录态有效期约 1~3 天（QQ 官方限制），过期后需重新登录
 
@@ -99,7 +100,7 @@
 
 从 [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases) 下载最新版安装包：
 
-- [TransparentMusicPlayer-Setup-3.10.5.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.5/TransparentMusicPlayer-Setup-3.10.5.exe) —— NSIS 安装包（推荐）
+- [TransparentMusicPlayer-Setup-3.10.6.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.6/TransparentMusicPlayer-Setup-3.10.6.exe) —— NSIS 安装包（推荐）
 
 > 仅支持 **Windows x64**。安装时可自定义安装目录。
 

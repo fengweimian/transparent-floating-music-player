@@ -47,6 +47,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 - Separate login entry at top-right (**in-app embedded QR scan**, official QQ ptlogin2 channel, secure)
 - **My playlists**: created & collected playlists merged (favorite ❤ on top), click to play
 - **Daily recommendation**: new songs + hot recommended playlists
+- **Paid tracks**: after logging in with a VIP account, **VIP tracks play directly** (since v3.10.6 the URL resolver carries your login session; without login, paid tracks cannot be resolved)
 - Login state also shown in **Settings page** (view status / logout)
 - ⚠️ QQ Music login lasts ~1–3 days (QQ official limit); re-login when expired
 
@@ -98,7 +99,7 @@ A **fully transparent, borderless desktop floating music player** built with Ele
 
 Download the latest installer from [Releases](https://github.com/fengweimian/transparent-floating-music-player/releases):
 
-- [TransparentMusicPlayer-Setup-3.10.5.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.5/TransparentMusicPlayer-Setup-3.10.5.exe) — NSIS installer (recommended)
+- [TransparentMusicPlayer-Setup-3.10.6.exe](https://github.com/fengweimian/transparent-floating-music-player/releases/download/v3.10.6/TransparentMusicPlayer-Setup-3.10.6.exe) — NSIS installer (recommended)
 
 > **Windows x64 only.** Custom install directory supported.
 

@@ -29,3 +29,6 @@ _*.*
 # ⚠️ 代码保护：明文源码备份禁止入库（加密的唯一意义）
 scripts/main.original.js
 scripts/_protected/
+
+# 临时探测/调试目录（.tmp-vip2 等）
+.tmp-*/
