@@ -711,10 +711,13 @@
     main.className = "lyric-main";
     main.textContent = line.text;
     el.appendChild(main);
-    if (showTrans && line.trans && settings.showTranslation) {
+    // ⚠️ v3.11.0：翻译有两个来源 —— ① LRC 行内括号翻译（line.trans）
+    //   ② 接口的 tlyric（song._tLines，按时间最近匹配）。原来只看 ①，所以②一直没显示
+    const transText = line.trans || XFLyrics.pickTranslation((curSong() || {})._tLines, line.time);
+    if (showTrans && transText && settings.showTranslation) {
       const trans = document.createElement("span");
       trans.className = "lrc-trans";
-      trans.textContent = line.trans;
+      trans.textContent = transText;
       el.appendChild(trans);
     }
   }
@@ -2170,6 +2173,9 @@
       song.lrc = text;
       // ⚠️ v3.6.0：LRC + 逐字（QRC/YRC）合并逻辑统一走 XFLyrics.buildLines（三模板共用唯一真源）
       song._lines = XFLyrics.buildLines(text, song.yrc, { timeUnit: "ms" });
+      // ⚠️ v3.11.0：翻译单独存一条时间轴 —— 之前 tlyric 只存进 song.tlyric 却没人读，
+      //   开关打开也没效果。翻译行数是原文子集，必须按时间匹配（不能按下标对齐）。
+      song._tLines = XFLyrics.parseTranslation(song.tlyric);
       // 若当前正在播放这首，刷新歌词显示
       if (curSong() === song) {
         lastLyricIdx = -1;
@@ -2714,6 +2720,7 @@
     settings.lyricsFont = $("set-lyrics-font") ? $("set-lyrics-font").value || "" : "";
     settings.scanColor = $("set-scan-color").value || "#ffffff";
     settings.showTranslation = $("set-show-trans").checked;
+    lastLyricIdx = -1;   // v3.11.0：切换翻译开关后立即重绘当前行，否则要等下一句才生效
     settings.showScan = $("set-show-scan").checked;
     settings.stageFx = $("set-stage-fx") ? $("set-stage-fx").checked : settings.stageFx;
     settings.slideEnabled = $("set-slide-on").checked;

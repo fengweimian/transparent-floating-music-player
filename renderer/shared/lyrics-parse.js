@@ -300,5 +300,39 @@
     }));
   }
 
-  window.XFLyrics = { parseLrc, parseQrc, parseYrc, parseCharLines, isYrcFormat, attachChars, buildLines, parseAwlrc, isAwlrcFormat };
+  // ============================================================
+  // ⚠️ v3.11.0：歌词翻译（tlyric）接线
+  //
+  // 背景：三个新版模板一直把接口返回的 tlyric 存进 song.tlyric 就再没人用 ——
+  //   song._lines = buildLines(text, yrc, { timeUnit:"ms" }) 里根本没传翻译，
+  //   而 buildLines 的 trans 选项只处理 **LRC 行内翻译**（同一行括号里的那种），
+  //   于是 setLine() 里 `line.trans` 恒为空 → 设置里开了"显示歌词翻译"也毫无反应。
+  //   经典模板另有一条 tlines + translationFor 的双轨，所以只有它正常。
+  //
+  // 现在把这两步抽到共享层，三模板调用同一份实现：
+  //   song._tLines = XFLyrics.parseTranslation(song.tlyric);
+  //   const t = line.trans || XFLyrics.pickTranslation(song._tLines, line.time);
+  // ============================================================
+
+  // tlyric（LRC 格式）→ 翻译时间轴（毫秒，与 buildLines 的 timeUnit:"ms" 对齐）
+  function parseTranslation(tlyricText) {
+    if (!tlyricText) return [];
+    return parseLrc(tlyricText).map((l) => ({ time: l.time, text: l.text }));
+  }
+
+  // 取某一行时间对应的翻译：返回「时间 ≤ time 的最近一条」
+  // ⚠️ 翻译行数常是原文的子集（实测 45/49），必须按时间匹配，绝不能按下标对齐（会逐行错位）
+  function pickTranslation(tLines, time) {
+    if (!tLines || !tLines.length) return "";
+    if (typeof time !== "number" || !isFinite(time)) return "";
+    let lo = 0, hi = tLines.length - 1, hit = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (tLines[mid].time <= time) { hit = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    return hit >= 0 ? (tLines[hit].text || "") : "";
+  }
+
+  window.XFLyrics = { parseLrc, parseQrc, parseYrc, parseCharLines, isYrcFormat, attachChars, buildLines, parseAwlrc, isAwlrcFormat, parseTranslation, pickTranslation };
 })();
