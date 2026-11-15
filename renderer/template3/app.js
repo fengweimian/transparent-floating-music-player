@@ -426,7 +426,7 @@
   function failPlay(song, message) {
     if (song) song.url = "";
     stopAudioQuietly();
-    showFeedback(message || "这首歌拿不到音频地址，点播放可重试", true);
+    showFeedback(message || "这首歌拿不到音频地址，点播放可重试", true, 10000);
     forwardDl({ type: "playstate", playing: false });
     scheduleSaveState();
   }
@@ -797,14 +797,18 @@
 
   // ============ 反馈提示 ============
   let tipTimer;
-  function showFeedback(text, sticky) {
+  function showFeedback(text, sticky, ms) {
     const tip = $("feedback-tip");
     tip.textContent = text;
     tip.style.opacity = "1";
     clearTimeout(tipTimer);
     // v3.10.3：sticky=true 时常驻（取址中 / 失败原因要一直看得到），等下次提示或 hideFeedback 覆盖
-    if (sticky === true) return;
-    tipTimer = setTimeout(() => { tip.style.opacity = "0"; }, 1800);
+    // v3.11.1：sticky 可带时长 ms —— 失败原因传 10000，到点自动淡出。
+    //   ⚠️ 原来 sticky 没有任何退出口：只有在「取址成功」那一行才会 hideFeedback，
+    //   而重播/点队列里播过的歌/本地音乐都走 startPlay()，不经过那里 →
+    //   一次失败留下的提示会永久压在底部，直到碰巧再有一次取址成功。
+    if (sticky === true && !(ms > 0)) return;
+    tipTimer = setTimeout(() => { tip.style.opacity = "0"; }, ms > 0 ? ms : 1800);
   }
   function hideFeedback() {
     clearTimeout(tipTimer);
